@@ -1,6 +1,12 @@
-import json
+"""Streamlit frontend for the Expenses Tracker application."""
+
+import os
+import sys
 import streamlit as st
-from ..backend.core.google_drive_handler import GoogleDriveHandler
+
+sys.path.append(os.getcwd())
+
+from backend.core.google_drive_handler import GoogleDriveHandler
 
 # Load credentials
 SCOPES = st.secrets.google_drive_api.scopes
