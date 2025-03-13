@@ -1,6 +1,6 @@
 import json
 import streamlit as st
-from backend.core.google_drive_handler import GoogleDriveHandler
+from ..backend.core.google_drive_handler import GoogleDriveHandler
 
 # Load credentials
 SCOPES = st.secrets.google_drive_api.scopes
