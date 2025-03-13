@@ -11,6 +11,7 @@ Usage example:
 
 import os
 import pickle
+import toml
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from googleapiclient.errors import HttpError
@@ -19,16 +20,10 @@ from google.auth.transport.requests import Request
 
 
 class GoogleDriveHandler:
-    """Handles authentication and files upload to Google Drive
-    Attributes:
-        credentials_json (str): Path to the credentials JSON file.
-        scopes (list): List of scopes to request access to.
-        service (googleapiclient.discovery.Resource): Google Drive service obj.
-    """
+    """Handles authentication and files upload to Google Drive"""
 
-    def __init__(self, credentials_json, scopes):
-        self.credentials_json = credentials_json
-        self.scopes = scopes
+    def __init__(self, config_path):
+        self.config = config_path
         self.service = self.authenticate()
 
     def authenticate(self):
@@ -36,15 +31,18 @@ class GoogleDriveHandler:
         Created automatically when the auth flow completes the 1st time."""
         creds = None
         token_path = "token.pickle"
+
         if os.path.exists(token_path):
             with open(token_path, "rb") as token:
                 creds = pickle.load(token)
+
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.credentials_json, self.scopes
+                client_config = {"web": self.config["web"]}
+                flow = InstalledAppFlow.from_client_config(
+                    client_config, self.config.google_drive_api.scopes
                 )
                 creds = flow.run_local_server(port=0)
             # Save the credentials for the next run

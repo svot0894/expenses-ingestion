@@ -3,7 +3,6 @@ import streamlit as st
 from backend.core.google_drive_handler import GoogleDriveHandler
 
 # Load credentials
-CREDENTIALS_PATH = st.secrets.google_drive_api.credentials_path
 SCOPES = st.secrets.google_drive_api.scopes
 FOLDER_ID = st.secrets.google_drive_api.folder_id
 
@@ -20,7 +19,7 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
-    drive_handler = GoogleDriveHandler(CREDENTIALS_PATH, SCOPES)
+    drive_handler = GoogleDriveHandler(st.secrets)
 
     for uploaded_file in uploaded_files:
         # check for duplicate file
