@@ -1,0 +1,107 @@
+"""
+This module provides a class `GoogleDriveHandler`:
+    - Handles authentication.
+    - Handles files upload.
+Classes:
+    GoogleDriveHandler: Handles authentication and files upload.
+Usage example:
+    handler = GoogleDriveHandler('path/to/credentials.json', ['https://www.googleapis.com/auth/drive'])
+    handler.upload_file('path/to/local/file.txt')
+"""
+
+import os
+import pickle
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from googleapiclient.errors import HttpError
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+
+
+class GoogleDriveHandler:
+    """Handles authentication and files upload to Google Drive
+    Attributes:
+        credentials_json (str): Path to the credentials JSON file.
+        scopes (list): List of scopes to request access to.
+        service (googleapiclient.discovery.Resource): Google Drive service obj.
+    """
+
+    def __init__(self, credentials_json, scopes):
+        self.credentials_json = credentials_json
+        self.scopes = scopes
+        self.service = self.authenticate()
+
+    def authenticate(self):
+        """The file token.pickle stores the user's access and refresh tokens
+        Created automatically when the auth flow completes the 1st time."""
+        creds = None
+        token_path = "token.pickle"
+        if os.path.exists(token_path):
+            with open(token_path, "rb") as token:
+                creds = pickle.load(token)
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    self.credentials_json, self.scopes
+                )
+                creds = flow.run_local_server(port=0)
+            # Save the credentials for the next run
+            with open(token_path, "wb") as token:
+                pickle.dump(creds, token)
+        service = build("drive", "v3", credentials=creds)
+        return service
+
+    def file_exists(self, file_name, folder_id=None):
+        """
+        Checks if a file already exists in Google Drive.
+
+        Args:
+            file_name (str): File name to check.
+            folder_id (str, optional): Google Drive folder ID to check in.
+
+        Returns:
+            bool: True if file exists, else False.
+        """
+        query = f"name='{file_name}'"
+
+        if folder_id:
+            query += f" and '{folder_id}' in parents and trashed = false"
+
+        results = self.service.files().list(q=query, fields="files(id)").execute()
+        files = results.get("files", [])
+        return len(files) > 0
+
+    def upload_file(self, uploaded_file, folder_id=None):
+        """
+        Uploads a file to Google Drive.
+
+        Args:
+            file_path (str): Local file path to upload.
+            folder_id (str, optional): Google Drive folder ID to upload the file to.
+
+        Returns:
+            str: Uploaded file ID if successful, else None.
+        """
+
+        try:
+            file_metadata = {"name": uploaded_file.name}
+
+            if folder_id:
+                file_metadata["parents"] = [folder_id]
+
+            media = MediaIoBaseUpload(
+                uploaded_file, mimetype="text/csv", resumable=True
+            )
+            file = (
+                self.service.files()
+                .create(body=file_metadata, media_body=media, fields="id")
+                .execute()
+            )
+
+        except HttpError as error:
+            print(f"An error occurred: {error}")
+            file = None
+
+        return file.get("id")
