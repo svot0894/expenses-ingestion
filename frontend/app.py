@@ -1,7 +1,11 @@
-import pandas as pd
+import json
 import streamlit as st
-import os
 from backend.core.google_drive_handler import GoogleDriveHandler
+
+# Load credentials
+CREDENTIALS_PATH = st.secrets.google_drive_api.credentials_path
+SCOPES = st.secrets.google_drive_api.scopes
+FOLDER_ID = st.secrets.google_drive_api.folder_id
 
 st.title("Expenses Tracker")
 
@@ -14,12 +18,6 @@ st.button("Log out", on_click=st.logout)
 uploaded_files = st.file_uploader(
     "Load here your expenses in CSV format.", type="csv", accept_multiple_files=True
 )
-
-FOLDER_ID = st.text_input("Enter your Google Drive folder ID:")
-
-if not FOLDER_ID:
-    st.warning("⚠️ Please enter your Google Drive folder ID.")
-    st.stop()
 
 if uploaded_files:
     drive_handler = GoogleDriveHandler(CREDENTIALS_PATH, SCOPES)
