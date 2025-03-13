@@ -14,12 +14,6 @@ FOLDER_ID = st.secrets.google_drive_api.folder_id
 
 st.title("Expenses Tracker")
 
-if not st.experimental_user.is_logged_in:
-    st.button("Log in with Google", on_click=st.login)
-    st.stop()
-
-st.button("Log out", on_click=st.logout)
-
 uploaded_files = st.file_uploader(
     "Load here your expenses in CSV format.", type="csv", accept_multiple_files=True
 )
