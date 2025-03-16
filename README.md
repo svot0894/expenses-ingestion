@@ -17,7 +17,7 @@ This document outlines the design for a web-based system to **upload, validate, 
 
 ## 3. Ingestion Pipeline (Medallion Architecture)
 
-![Ingestion Pipeline](images/schema.png)
+![Schema definition](docs/images/schema.png)
 
 ### Bronze Layer (Raw Data Storage)
 
