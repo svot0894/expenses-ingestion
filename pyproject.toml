@@ -1,0 +1,8 @@
+[project]
+name = "expenses-ingestion"
+version = "0.1.0"
+requires-python = ">=3.8"
+dependencies = [
+    "streamlit==1.43.1",
+    "google-api-python-client==2.163.0",
+]

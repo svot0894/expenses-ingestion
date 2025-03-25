@@ -1,5 +1,4 @@
-# if on windows, i recommend scoop as a package manager
+https://astral.sh/blog/uv
 
-Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
-
-manually ran db script in supabase to create tables -> planning on writing a gihub workflow for this
+i use uv as a python project and package manager
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
