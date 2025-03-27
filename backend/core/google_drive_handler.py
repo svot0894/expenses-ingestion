@@ -11,7 +11,6 @@ Usage example:
 
 import os
 import pickle
-import toml
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from googleapiclient.errors import HttpError
