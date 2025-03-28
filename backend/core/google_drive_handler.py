@@ -50,26 +50,6 @@ class GoogleDriveHandler:
         service = build("drive", "v3", credentials=creds)
         return service
 
-    def file_exists(self, file_name, folder_id=None):
-        """
-        Checks if a file already exists in Google Drive.
-
-        Args:
-            file_name (str): File name to check.
-            folder_id (str, optional): Google Drive folder ID to check in.
-
-        Returns:
-            bool: True if file exists, else False.
-        """
-        query = f"name='{file_name}'"
-
-        if folder_id:
-            query += f" and '{folder_id}' in parents and trashed = false"
-
-        results = self.service.files().list(q=query, fields="files(id)").execute()
-        files = results.get("files", [])
-        return len(files) > 0
-
     def upload_file(self, uploaded_file, folder_id=None):
         """
         Uploads a file to Google Drive.
