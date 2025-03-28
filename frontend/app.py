@@ -9,6 +9,7 @@ sys.path.append(os.getcwd())
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
 from backend.models.expenses_file import ExpensesFile
+from backend.validation.file_validators import ChecksumValidator, SchemaValidator, FileValidatorPipeline
 
 # Load credentials
 SCOPES = st.secrets.google_drive_api.scopes
@@ -21,30 +22,36 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
+    validators = [ChecksumValidator(), SchemaValidator(expected_schema={"TRANSACTION_DATE", "DESCRIPTION", "AMOUNT"})]
+    validation_pipeline = FileValidatorPipeline(validators)
+
     drive_handler = GoogleDriveHandler(st.secrets)
     file_handler = FileHandler()
 
     for uploaded_file in uploaded_files:
-
-        # store file content in a temporary variable
+        
+        # file content
         file_content = uploaded_file.getvalue()
+        file_metadata = {
+            "file_name": uploaded_file.name,
+            "file_size": len(file_content)
+        }
 
-        # create ExpensesFile object
-        expenses_file = ExpensesFile(
-            file_name=uploaded_file.name,
-            file_size=len(file_content),
-            number_rows=file_content.count(b"\n") - 1, # exclude header
-            checksum=ExpensesFile.generate_checksum(file_content),
-        )
+        # run validators against file
+        is_valid, message = validation_pipeline.run_validations(file_content, file_metadata)
 
-        # TODO: run validation against file
-
-        # upload file metadata
-        file_handler.upload_file_metadata(expenses_file)
-
-        # check for duplicate file
-        if drive_handler.file_exists(uploaded_file.name, FOLDER_ID):
-            st.warning(f"⚠️ File {uploaded_file.name} already exists in the folder.")
+        if not is_valid:
+            st.warning(message)
+            break
         else:
-            drive_handler.upload_file(uploaded_file, FOLDER_ID)
+            # create ExpensesFile object
+            expenses_file = ExpensesFile(
+                file_name=file_metadata["file_name"],
+                file_size=file_metadata["file_size"],
+                number_rows=file_content.count(b"\n") - 1, # exclude header
+                checksum=file_metadata["checksum"],
+            )
+
+            # upload file metadata
+            file_handler.upload_file_metadata(expenses_file)
             st.success(f"✅ File {uploaded_file.name} uploaded successfully.")

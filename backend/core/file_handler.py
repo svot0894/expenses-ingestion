@@ -20,13 +20,21 @@ class FileHandler:
         """Store file metadata in the database"""
 
         try:
-            data = self.supabase.schema("config_sch").table("cfg_t_files").insert(
+            self.supabase.schema("config_sch").table("cfg_t_files").insert(
             [
                 file.model_dump(mode="json"),
             ]
             ).execute()
-            print(file.model_dump_json())
             return "File metadata stored successfully"
         except Exception as e:
             print(f"An error occurred while storing file metadata: {e}")
             return "Failed to store file metadata"
+
+    def get_file_by_checksum(self, checksum: str) -> bool:
+        """Check if a file with the given checksum exists in the database"""
+        try:
+            response = self.supabase.schema("config_sch").table("cfg_t_files").select("file_id").eq("checksum", checksum).execute()
+            return bool(response.data)
+        except Exception as e:
+            print(f"An error occurred while checking for checksum: {e}")
+            return False
