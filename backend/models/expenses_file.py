@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, Field
 from uuid import UUID
 from typing import Optional
-from datetime import datetime
+from datetime import date, datetime
 import hashlib
 
 
@@ -38,6 +38,6 @@ class Expense(SQLModel, table=True):
     __table_args__ = {"schema": "s_sch"}
 
     file_id: str = Field(foreign_key="config_sch.cfg_t_files.file_id", primary_key=True)
-    transaction_date: datetime
+    transaction_date: date
     description: str = Field(max_length=255)
     amount: float

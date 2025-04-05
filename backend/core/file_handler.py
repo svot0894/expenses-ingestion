@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from backend.models.expenses_file import ExpensesFile
+from backend.models.expenses_file import Expense, ExpensesFile
 
 load_dotenv()
 
@@ -28,6 +28,14 @@ class FileHandler:
         except Exception as e:
             return False, f"An error occurred while storing file metadata: {e}"
 
+    def update_file_status(self, file_id: str, status: int) -> tuple[bool, str]:
+        """Update the status of a file in the database"""
+        try:
+            self.supabase.schema("config_sch").table("cfg_t_files").update({"file_status_id": status}).eq("file_id", file_id).execute()
+            return True, "File status updated successfully"
+        except Exception as e:
+            return False, f"An error occurred while updating file status: {e}"
+
     def get_file_by_checksum(self, checksum: str) -> tuple[bool, str | dict]:
         """Check if a file with the given checksum exists in the database"""
         try:
@@ -45,3 +53,30 @@ class FileHandler:
             return True, response.data
         except Exception as e:
             return False, f"An error occurred while retrieving files: {e}"
+
+    def insert_expenses(self, expense: Expense | dict, data_condition: str) -> tuple[bool, str]:
+        """
+        Load data to the respective table based on the data condition (good or error).
+
+        Parameters:
+        - expense: Expense object or dict containing the data to be inserted.
+        - data_condition: Condition to determine if the data is good or error.
+        """
+        try:
+            if data_condition == "good" and isinstance(expense, Expense):
+                self.supabase.schema("s_sch").table("s_t_expenses").insert(
+                    [
+                        expense.model_dump(mode="json"),
+                    ]
+                ).execute()
+            elif data_condition == "error" and isinstance(expense, dict):
+                self.supabase.schema("s_sch").table("s_t_expenses_error").insert(
+                    [
+                        expense,
+                    ]
+                ).execute()
+            else:
+                return False, "Invalid data type or condition"
+            return True, "Data inserted successfully"
+        except Exception as e:
+            return False, f"An error occurred while inserting data: {e}"

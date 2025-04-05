@@ -13,6 +13,7 @@ from backend.core.file_handler import FileHandler
 from backend.models.expenses_file import ExpensesFile
 from backend.validation.base_validator import FileValidatorPipeline
 from backend.validation.validators.file_validators import ChecksumValidator, SchemaValidator
+from backend.tasks.silver_layer_tasks import load_data_to_silver
 
 # Load credentials
 SCOPES = st.secrets.google_drive_api.scopes
@@ -107,6 +108,7 @@ if uploaded_files:
 
 # File Processing Status
 st.subheader("📊 File Processing Status")
+st.caption("Select a file to start processing.")
 
 is_valid, file_list = file_handler.get_all_files()
 
@@ -130,3 +132,9 @@ else:
     if selected_rows.selection["rows"]:
         selected_file = df.iloc[selected_rows.selection["rows"][0]]
         st.session_state.selected_file = selected_file
+        
+        is_valid, message = load_data_to_silver(selected_file.file_id, drive_handler, file_handler)
+        if not is_valid:
+            st.error(f"❌ {message}")
+        else:
+            st.success("✅ File processed successfully.")
