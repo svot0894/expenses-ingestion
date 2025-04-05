@@ -9,10 +9,11 @@ Usage example:
     handler.upload_file('path/to/local/file.txt')
 """
 
+import io
 import os
 import pickle
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
+from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -50,7 +51,7 @@ class GoogleDriveHandler:
         service = build("drive", "v3", credentials=creds)
         return service
 
-    def upload_file(self, uploaded_file, folder_id=None):
+    def upload_file(self, uploaded_file, folder_id=None)-> tuple[bool, str, str]:
         """
         Uploads a file to Google Drive.
 
@@ -78,7 +79,43 @@ class GoogleDriveHandler:
             )
 
         except HttpError as error:
-            print(f"An error occurred: {error}")
-            file = None
+            return False, None, f"An error occurred: {error}"
 
-        return file.get("id")
+        return True, file.get("id"), "File uploaded successfully."
+
+    def delete_file(self, file_id : str) -> tuple[bool, str]:
+        """Delete a file from Google Drive.
+
+        Args:
+            file_id (str): The ID of the file to delete.
+
+        Returns:
+            bool: True if the file was deleted successfully, False otherwise.
+        """
+        try:
+            body_value = {"trashed": True}
+            self.service.files().update(fileId=file_id, body=body_value).execute()
+            return True, "File deleted successfully."
+        except HttpError as error:
+            return False, f"An error occurred while trying to delete the file: {error}"
+
+    def download_file(self, file_id : str, folder_id : str = None) -> tuple[bool, str]:
+        """Download a file from Google Drive.
+
+        Args:
+            file_id (str): The ID of the file to download.
+            folder_id (str, optional): The ID of the folder to save the downloaded file.
+
+        Returns:
+            bool: True if the file was downloaded successfully, False otherwise.
+        """
+        try:
+            request = self.service.files().get_media(fileId=file_id)
+            file = io.BytesIO()
+            downloader = MediaIoBaseDownload(file, request)
+            done = False
+            while done is False:
+                status, done = downloader.next_chunk()
+        except HttpError as error:
+            return False, f"An error occurred while trying to download the file: {error}"
+        return True, file.getvalue()

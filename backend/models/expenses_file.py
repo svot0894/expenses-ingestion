@@ -18,7 +18,7 @@ class ExpensesFile(SQLModel, table=True):
     __tablename__ = "cfg_t_files"
     __table_args__ = {"schema": "config_sch"}
 
-    file_id: UUID = Field(primary_key=True)
+    file_id: str = Field(primary_key=True)
     file_name: str = Field(max_length=255)
     file_size: int
     number_rows: int
@@ -32,3 +32,12 @@ class ExpensesFile(SQLModel, table=True):
     @staticmethod
     def generate_checksum(content: str) -> str:
         return hashlib.sha224(content).hexdigest()
+
+class Expense(SQLModel, table=True):
+    __tablename__ = "s_t_expenses"
+    __table_args__ = {"schema": "s_sch"}
+
+    file_id: str = Field(foreign_key="config_sch.cfg_t_files.file_id", primary_key=True)
+    transaction_date: datetime
+    description: str = Field(max_length=255)
+    amount: float

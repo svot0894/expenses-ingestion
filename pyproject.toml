@@ -9,6 +9,7 @@ dependencies = [
     "load-dotenv==0.1.0",
     "supabase==2.14.0",
     "sqlmodel==0.0.24",
+    "celery[redis]==5.4.0",
 ]
 
 [dependency-groups]

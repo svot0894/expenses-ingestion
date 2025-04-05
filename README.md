@@ -28,9 +28,8 @@ This document outlines the design for a web-based system to **upload, validate, 
 
 ### Silver Layer (Validated & Clean Data)
 
-- **Performs Schema Validation** (Rejects invalid files).
 - **Cleans & standardizes data** (Formats dates, trims spaces, etc.).
-- **Stores only valid rows in PostgreSQL**.
+- **Stores only valid rows**.
 - **Failed rows go to a separate error table.**
 
 ### Gold Layer (Final Processed Data)

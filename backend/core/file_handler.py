@@ -16,25 +16,32 @@ class FileHandler:
         
         self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
 
-    def upload_file_metadata(self, file: ExpensesFile):
+    def upload_file_metadata(self, file: ExpensesFile) -> tuple[bool, str]:
         """Store file metadata in the database"""
-
         try:
             self.supabase.schema("config_sch").table("cfg_t_files").insert(
-            [
-                file.model_dump(mode="json"),
-            ]
+                [
+                    file.model_dump(mode="json"),
+                ]
             ).execute()
-            return "File metadata stored successfully"
+            return True, "File metadata stored successfully"
         except Exception as e:
-            print(f"An error occurred while storing file metadata: {e}")
-            return "Failed to store file metadata"
+            return False, f"An error occurred while storing file metadata: {e}"
 
-    def get_file_by_checksum(self, checksum: str) -> bool:
+    def get_file_by_checksum(self, checksum: str) -> tuple[bool, str | dict]:
         """Check if a file with the given checksum exists in the database"""
         try:
             response = self.supabase.schema("config_sch").table("cfg_t_files").select("file_id").eq("checksum", checksum).execute()
-            return bool(response.data)
+            if response.data:
+                return True, response.data
+            return False, "No file found with the given checksum"
         except Exception as e:
-            print(f"An error occurred while checking for checksum: {e}")
-            return False
+            return False, f"An error occurred while checking for checksum: {e}"
+
+    def get_all_files(self) -> tuple[bool, str | list]:
+        """Retrieve all files from the database"""
+        try:
+            response = self.supabase.schema("config_sch").table("cfg_t_files").select("*").execute()
+            return True, response.data
+        except Exception as e:
+            return False, f"An error occurred while retrieving files: {e}"
