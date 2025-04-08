@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from backend.models.expenses_file import Expense, ExpensesFile
+from backend.models.models import Expense, ExpensesFile
 
 load_dotenv()
 
@@ -28,13 +28,16 @@ class FileHandler:
         except Exception as e:
             return False, f"An error occurred while storing file metadata: {e}"
 
-    def update_file_status(self, file_id: str, status: int) -> tuple[bool, str]:
-        """Update the status of a file in the database"""
+    def update_file_metadata(self, file_id: str, attribute: str, value: any) -> tuple[bool, str]:
+        """Update the passed attribute of a file in the database"""
         try:
-            self.supabase.schema("config_sch").table("cfg_t_files").update({"file_status_id": status}).eq("file_id", file_id).execute()
-            return True, "File status updated successfully"
+            self.supabase.schema("config_sch").table("cfg_t_files").update(
+                {attribute: value}
+            ).eq("file_id", file_id).execute()
+            return True, "File attribute updated successfully"
         except Exception as e:
-            return False, f"An error occurred while updating file status: {e}"
+            return False, f"An error occurred while updating file attribute: {e}"
+
 
     def get_file_by_checksum(self, checksum: str) -> tuple[bool, str | dict]:
         """Check if a file with the given checksum exists in the database"""
@@ -49,7 +52,9 @@ class FileHandler:
     def get_all_files(self) -> tuple[bool, str | list]:
         """Retrieve all files from the database"""
         try:
-            response = self.supabase.schema("config_sch").table("cfg_t_files").select("*").execute()
+            response = self.supabase.schema("config_sch").table("cfg_t_files").select(
+                "file_id, file_name, number_rows, inserted_datetime, ingested_datetime, file_status_id, status:cfg_t_file_status(file_status_name)"
+            ).execute()
             return True, response.data
         except Exception as e:
             return False, f"An error occurred while retrieving files: {e}"

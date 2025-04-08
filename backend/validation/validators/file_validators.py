@@ -2,7 +2,7 @@ import csv
 from io import StringIO
 from backend.validation.base_validator import BaseValidator
 from backend.core.file_handler import FileHandler
-from backend.models.expenses_file import ExpensesFile
+from backend.models.models import ExpensesFile
 
 
 class ChecksumValidator(BaseValidator):

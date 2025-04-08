@@ -10,7 +10,7 @@ sys.path.append(os.getcwd())
 
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
-from backend.models.expenses_file import ExpensesFile
+from backend.models.models import ExpensesFile
 from backend.validation.base_validator import FileValidatorPipeline
 from backend.validation.validators.file_validators import ChecksumValidator, SchemaValidator
 from backend.tasks.silver_layer_tasks import load_data_to_silver
@@ -56,7 +56,7 @@ if uploaded_files:
                 is_valid, message = validation_pipeline.run_validations(file_content, file_metadata)
 
                 if not is_valid:
-                    raise Exception(f"Validation failed: {message}")
+                    raise Exception(f"File didn't pass validations: {message}")
 
                 progress_bar.progress(50)
 
@@ -81,9 +81,11 @@ if uploaded_files:
                     file_size=file_metadata["file_size"],
                     number_rows=file_content.count(b"\n") - 1,  # exclude header
                     checksum=file_metadata["checksum"],
+                    account_type=file_metadata["file_name"].split('_')[0]
                 )
 
                 is_valid, message = file_handler.upload_file_metadata(expenses_file)
+
                 if not is_valid:
                     raise Exception(f"{message}")
 
@@ -93,7 +95,7 @@ if uploaded_files:
                 status.update(label=f"✅ File {uploaded_file.name} uploaded successfully.", state="complete")
 
             except Exception as e:
-                # Rollback actions
+                # trigger rollback actions
                 for action in reversed(rollback_actions):
                     try:
                         action()
@@ -108,7 +110,7 @@ if uploaded_files:
 
 # File Processing Status
 st.subheader("📊 File Processing Status")
-st.caption("Select a file to start processing.")
+st.caption("Select a file to start processing and track its status.")
 
 is_valid, file_list = file_handler.get_all_files()
 
@@ -116,25 +118,20 @@ if not file_list:
     st.info("No files found in the database.")
 else:
     df = pd.DataFrame(file_list)
-
-    status_text = {
-        1: "🟡 Pending",
-        2: "🔵 Processing",
-        3: "✅ Completed",
-        4: "❌ Failed",
-    }
-
-    df["status"] = df["file_status_id"].map(status_text)
-    df = df[["file_id", "file_name", "number_rows", "inserted_datetime", "ingested_datetime", "status"]]
+    # status is a nested dictionary because it comes from a different table, extract the file_status_name
+    df["status"] = df["status"].apply(lambda x : x["file_status_name"])
 
     selected_rows = st.dataframe(df, use_container_width=True, on_select="rerun")
 
     if selected_rows.selection["rows"]:
         selected_file = df.iloc[selected_rows.selection["rows"][0]]
-        st.session_state.selected_file = selected_file
         
-        is_valid, message = load_data_to_silver(selected_file.file_id, drive_handler, file_handler)
-        if not is_valid:
-            st.error(f"❌ {message}")
+        if selected_file.file_status_id != 3:
+            is_valid, message = load_data_to_silver(selected_file.file_id, drive_handler, file_handler)
+
+            if not is_valid:
+                st.error(f"❌ {message}")
+            else:
+                st.success("✅ File processed successfully.")
         else:
-            st.success("✅ File processed successfully.")
+            st.warning("This file has already been processed.")

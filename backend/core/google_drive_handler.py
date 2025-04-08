@@ -51,16 +51,16 @@ class GoogleDriveHandler:
         service = build("drive", "v3", credentials=creds)
         return service
 
-    def upload_file(self, uploaded_file, folder_id=None)-> tuple[bool, str, str]:
+    def upload_file(self, uploaded_file : str, folder_id : str = None)-> tuple[bool, str, str]:
         """
         Uploads a file to Google Drive.
 
         Args:
-            file_path (str): Local file path to upload.
+            uploaded_file (str): Local file path to upload.
             folder_id (str, optional): Google Drive folder ID to upload the file to.
 
         Returns:
-            str: Uploaded file ID if successful, else None.
+            bool, str, str: Uploaded file ID if successful, else None.
         """
 
         try:

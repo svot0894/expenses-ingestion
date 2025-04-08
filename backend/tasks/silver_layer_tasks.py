@@ -3,7 +3,7 @@ This module contains the task to load the files stored in Google Drive to the si
 """
 import io
 import pandas as pd
-from backend.models.expenses_file import Expense
+from backend.models.expenses_model import Expense
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
 
@@ -33,16 +33,17 @@ def load_data_to_silver(file_id: str, drive_handler: GoogleDriveHandler, file_ha
         except Exception as e:
             raise Exception(f"Failed to read file content: {e}")
         
-        # STEP 3: Clean the data
+        # STEP 3: Clean the data TODO: this should be in a separate pipeline
         try:
             # Remove leading and trailing whitespace from column names
             df.columns = df.columns.str.strip()
 
             # Convert the transaction_date column to date format (eg. 25.02.25)
-            df["TRANSACTION_DATE"] = pd.to_datetime(df["TRANSACTION_DATE"], format="%d.%m.%y")
+            df["TRANSACTION_DATE"] = pd.to_datetime(df["TRANSACTION_DATE"], format="mixed")
 
             # Convert the amount column to float format
             df["AMOUNT"] = pd.to_numeric(df["AMOUNT"])
+
         except Exception as e:
             raise Exception(f"Failed to clean data: {e}")
         
@@ -87,7 +88,7 @@ def load_data_to_silver(file_id: str, drive_handler: GoogleDriveHandler, file_ha
             raise Exception(f"Failed to insert error data into the database: {message}")
         
 
-        # STEP 5: Update the status of the file in the database
+        # STEP 5: Update the status and ingested datetime of the file in the database
         if not failed_expenses:
             file_status = 3  # Completed
         elif expenses and failed_expenses:
@@ -95,12 +96,10 @@ def load_data_to_silver(file_id: str, drive_handler: GoogleDriveHandler, file_ha
         else:
             file_status = 9 # Failed
 
-        file_handler.update_file_status(file_id, status=file_status)  # Assuming 3 is the status for "Completed"
+        file_handler.update_file_metadata(file_id, "file_status_id", file_status)
+        file_handler.update_file_metadata(file_id, "ingested_datetime", "now()")
 
-        # STEP 6: Handle errors and rollback if necessary
-
-
-        # STEP 7: Return the result of the task
+        # STEP 6: Return the result of the task
         return True, "File loaded successfully to the silver layer."
     except Exception as e:
         return False, str(e)
