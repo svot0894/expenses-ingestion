@@ -7,7 +7,22 @@ import hashlib
 
 Base = declarative_base()
 
-class FileConfiguration(Base):
+class BaseModel:
+    """Base model for all database models"""
+    __abstract__ = True
+
+    def model_dump(self, mode="json"):
+        """Dump the model data in the specified format (default is JSON)"""
+        if mode == "json":
+            def serialize(value):
+                if isinstance(value, datetime):
+                    return value.isoformat()
+                return value
+            return {column.name: serialize(getattr(self, column.name)) for column in self.__table__.columns}
+        return None
+
+class FileConfiguration(Base, BaseModel):
+    """Configuration for file processing"""
     __tablename__ = "cfg_t_file_config"
     __table_args__ = {"schema": "config_sch"}
 
@@ -20,7 +35,8 @@ class FileConfiguration(Base):
     description = Column(String, default="", nullable=False)
 
 
-class FileStatus(Base):
+class FileStatus(Base, BaseModel):
+    """Status of the file processing"""
     __tablename__ = "cfg_t_file_status"
     __table_args__ = {"schema": "config_sch"}
 
@@ -29,17 +45,30 @@ class FileStatus(Base):
     description = Column(String, nullable=True)
 
 
-class ExpensesFile(Base):
+class ExpensesFile(Base, BaseModel):
+    """File containing expenses data"""
     __tablename__ = "cfg_t_files"
     __table_args__ = {"schema": "config_sch"}
 
+    def __init__(self, **kwargs):
+        """Initialize the ExpensesFile model"""
+        # Set default values for columns with defaults if not provided
+        if "file_status_id" not in kwargs:
+            kwargs["file_status_id"] = 1
+        if "active" not in kwargs:
+            kwargs["active"] = True
+        if "inserted_datetime" not in kwargs:
+            kwargs["inserted_datetime"] = datetime.today()
+        super().__init__(**kwargs)
+
     file_id = Column(String, primary_key=True)
+    account_type = Column(String(3), nullable=False)
     file_name = Column(String(255), nullable=False)
     file_size = Column(Integer, nullable=False)
     number_rows = Column(Integer, nullable=False)
     checksum = Column(String(255), unique=True, nullable=False)
     file_status_id = Column(Integer, ForeignKey("config_sch.cfg_t_file_status.file_status_id"), nullable=False)
-    file_config_id = Column(Integer, ForeignKey("config_sch.cfg_t_file_config.config_id"), nullable=False)
+    file_config_id = Column(Integer, ForeignKey("config_sch.cfg_t_file_config.config_id"), nullable=True)
     active = Column(Boolean, default=True, nullable=False)
     error_message = Column(String, nullable=True)
     inserted_datetime = Column(DateTime, default=datetime.today, nullable=False)
@@ -47,10 +76,11 @@ class ExpensesFile(Base):
 
     @staticmethod
     def generate_checksum(content: str) -> str:
-        return hashlib.sha224(content.encode()).hexdigest()
+        return hashlib.sha224(content).hexdigest()
 
 
-class Expense(Base):
+class Expense(Base, BaseModel):
+    """Expense record"""
     __tablename__ = "s_t_expenses"
     __table_args__ = {"schema": "s_sch"}
 

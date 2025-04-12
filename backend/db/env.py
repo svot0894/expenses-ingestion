@@ -1,9 +1,14 @@
+import sys
+import os
+
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+
+sys.path.append(os.getcwd())
 
 from backend.models.models import Base
 
@@ -26,6 +31,7 @@ target_metadata = Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+db_pass = os.getenv("SUPABASE_DB_PWD")
 
 def include_object(object, name, type_, reflected, compare_to):
     if type_ in ("table", "index", "constraint"):
@@ -45,12 +51,13 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = config.get_main_option("sqlalchemy.url").format(db_pass)
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_schemas=True,
         include_object=include_object,
     )
 
@@ -75,6 +82,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection
             , target_metadata=target_metadata
+            , include_schemas=True
             , include_object=include_object,
         )
 

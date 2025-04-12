@@ -3,7 +3,7 @@ This module contains the task to load the files stored in Google Drive to the si
 """
 import io
 import pandas as pd
-from backend.models.expenses_model import Expense
+from backend.models.models import Expense
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
 

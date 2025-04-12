@@ -81,7 +81,7 @@ if uploaded_files:
                     file_size=file_metadata["file_size"],
                     number_rows=file_content.count(b"\n") - 1,  # exclude header
                     checksum=file_metadata["checksum"],
-                    account_type=file_metadata["file_name"].split('_')[0]
+                    account_type=file_metadata["file_name"].split('_')[0],
                 )
 
                 is_valid, message = file_handler.upload_file_metadata(expenses_file)
