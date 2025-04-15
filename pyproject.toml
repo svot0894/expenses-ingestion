@@ -9,7 +9,6 @@ dependencies = [
     "load-dotenv==0.1.0",
     "alembic==1.15.2",
     "psycopg2-binary==2.9.10",
-    "supabase==2.15.0"
 ]
 
 [dependency-groups]

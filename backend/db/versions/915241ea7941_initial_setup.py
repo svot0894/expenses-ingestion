@@ -1,8 +1,8 @@
-"""Initial schema
+"""initial setup
 
-Revision ID: 2034c9597329
+Revision ID: 915241ea7941
 Revises: 
-Create Date: 2025-04-11 15:48:01.187709
+Create Date: 2025-04-12 19:15:35.625209
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '2034c9597329'
+revision: str = '915241ea7941'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -42,12 +42,13 @@ def upgrade() -> None:
     )
     op.create_table('cfg_t_files',
     sa.Column('file_id', sa.String(), nullable=False),
+    sa.Column('account_type', sa.String(length=3), nullable=False),
     sa.Column('file_name', sa.String(length=255), nullable=False),
     sa.Column('file_size', sa.Integer(), nullable=False),
     sa.Column('number_rows', sa.Integer(), nullable=False),
     sa.Column('checksum', sa.String(length=255), nullable=False),
     sa.Column('file_status_id', sa.Integer(), nullable=False),
-    sa.Column('file_config_id', sa.Integer(), nullable=False),
+    sa.Column('file_config_id', sa.Integer(), nullable=True),
     sa.Column('active', sa.Boolean(), nullable=False),
     sa.Column('error_message', sa.String(), nullable=True),
     sa.Column('inserted_datetime', sa.DateTime(), nullable=False),
@@ -59,12 +60,13 @@ def upgrade() -> None:
     schema='config_sch'
     )
     op.create_table('s_t_expenses',
+    sa.Column('expense_id', sa.Integer(), nullable=False),
     sa.Column('file_id', sa.String(), nullable=False),
     sa.Column('transaction_date', sa.Date(), nullable=False),
-    sa.Column('description', sa.String(length=255), nullable=False),
+    sa.Column('description', sa.String(length=255), nullable=True),
     sa.Column('amount', sa.Float(), nullable=False),
     sa.ForeignKeyConstraint(['file_id'], ['config_sch.cfg_t_files.file_id'], ),
-    sa.PrimaryKeyConstraint('file_id', 'transaction_date'),
+    sa.PrimaryKeyConstraint('expense_id'),
     schema='s_sch'
     )
     # ### end Alembic commands ###
