@@ -4,10 +4,20 @@ This module contains the task to load the files stored in Google Drive to the si
 
 from io import BytesIO
 import pandas as pd
-from backend.models.models import Expense
-from backend.validation.validators.expense_validators import ExpenseValidator
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
+from backend.models.models import Expense, FailedExpense
+from backend.validation.base_validator import RowValidatorPipeline
+from backend.validation.validators.expense_validators import (
+    DuplicatesValidator,
+    DateFormatValidator,
+)
+from backend.validation.cleaning.expense_cleaners import (
+    TrimColumnCleaner,
+    FormatDateCleaner,
+    FormatAmountSignCleaner,
+)
+from backend.validation.cleaning.base_cleaner import CleaningPipeline
 
 
 def load_data_to_silver(
@@ -48,28 +58,53 @@ def load_data_to_silver(
         except Exception as e:
             raise Exception(f"Failed to read file content: {e}")
 
-        # STEP 4: Clean the data by calling the clean_expense_data method
-        try:
-            validator = ExpenseValidator(file_config)
-            df = validator.clean_expense_data(df)
-        except Exception as e:
-            raise Exception(f"Failed to clean data: {e}")
+        # STEP 4: Run validators
+        validators = [
+            DuplicatesValidator(),
+            DateFormatValidator(file_config.date_format),
+        ]
 
-        # STEP 5: Convert data into a list of Expense objects
-        expenses = []
+        validator_pipeline = RowValidatorPipeline(validators)
+
+        valid_expenses = []
         failed_expenses = []
 
         for _, row in df.iterrows():
-            expense, error = validator.validate_expense_row(row)
-            if error:
-                failed_expenses.append(error)
+            is_valid, error_message = validator_pipeline.run_validations(row)
+
+            if is_valid:
+                # run cleaning steps
+                cleaners = [
+                    TrimColumnCleaner(),
+                    FormatDateCleaner(file_config.date_format),
+                    FormatAmountSignCleaner(file_config.amount_sign),
+                ]
+
+                cleaning_pipeline = CleaningPipeline(cleaners)
+                cleaned_rows = cleaning_pipeline.run(row)
+
+                expense = Expense(
+                    file_id=file_id,
+                    transaction_date=cleaned_rows.transaction_date,
+                    amount=cleaned_rows.amount,
+                    description=cleaned_rows.description,
+                )
+                valid_expenses.append(expense)
             else:
-                expenses.append(expense)
+                # run error handling steps
+                failed_expense = FailedExpense(
+                    file_id=file_id,
+                    transaction_date=str(row.transaction_date),
+                    amount=str(row.amount),
+                    description=str(row.description),
+                    error_message=error_message,
+                )
+                failed_expenses.append(failed_expense)
 
         # STEP 6: Insert the data into the database
 
         # Insert good data into s_t_expenses
-        for expense in expenses:
+        for expense in valid_expenses:
             is_valid, message = file_handler.insert_expenses(
                 expense, data_condition="good"
             )
@@ -89,7 +124,7 @@ def load_data_to_silver(
         # STEP 7: Update the status and ingested datetime of the file in the database
         if not failed_expenses:
             file_status = 3  # Completed
-        elif expenses and failed_expenses:
+        elif valid_expenses and failed_expenses:
             file_status = 4  # Partially completed
         else:
             file_status = 9  # Failed

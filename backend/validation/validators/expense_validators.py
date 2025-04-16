@@ -5,49 +5,40 @@ This module contains the validators for the expense data and data cleaning.
 
 import pandas as pd
 from backend.models.models import Expense, FileConfiguration
+from backend.validation.base_validator import BaseRowValidator
 
 
-class ExpenseValidator:
-    def __init__(self, file_config: FileConfiguration):
-        self.file_config = file_config
+# duplicates validator
+class DuplicatesValidator(BaseRowValidator):
+    """
+    Validator to check for duplicate entries in the expense data.
+    """
 
-    def clean_expense_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Cleans the expense data by converting data types.
-        :param df: DataFrame containing the expense data.
-        :return: Cleaned DataFrame.
-        """
-        # trim whitespace from columns
-        df.columns = df.columns.str.strip()
+    def __init__(self):
+        self.duplicate = set()
 
-        # Convert date column to expected datetime format
-        df["TRANSACTION_DATE"] = pd.to_datetime(
-            df["TRANSACTION_DATE"], format=self.file_config.date_format
-        )
+    def validate(self, row):
+        key = (row.TRANSACTION_DATE, row.AMOUNT, row.DESCRIPTION)
+        if key in self.duplicate:
+            return False, "Duplicate entry found."
+        self.duplicate.add(key)
+        return True, None
 
-        # Convert amount column to numeric format
-        df["AMOUNT"] = pd.to_numeric(df["AMOUNT"]) * self.file_config.amount_sign
 
-        return df
+# date format validator
+class DateFormatValidator(BaseRowValidator):
+    """
+    Validator to check if the date format is correct.
+    """
 
-    def validate_expense_row(self, row: pd.Series) -> tuple[Expense, dict]:
-        """
-        Validates a single row of expense data."""
+    def __init__(self, date_format: str):
+        self.date_format = date_format
+
+    def validate(self, row):
         try:
-            expense = Expense(
-                file_id=row.file_id,
-                transaction_date=row.TRANSACTION_DATE,
-                amount=row.AMOUNT,
-                description=row.DESCRIPTION,
-                account=row.ACCOUNT,
-            )
-            return expense, None
-        except Exception as e:
-            return None, {
-                "file_id": row.file_id,
-                "transaction_date": str(row.TRANSACTION_DATE),
-                "amount": str(row.AMOUNT),
-                "description": str(row.DESCRIPTION),
-                "account": str(row.ACCOUNT),
-                "error_message": str(e),
-            }
+            if pd.isna(row.TRANSACTION_DATE):
+                return False, "Date is missing."
+            pd.to_datetime(row.TRANSACTION_DATE, format=self.date_format)
+            return True, None
+        except ValueError:
+            return False, "Invalid date format."

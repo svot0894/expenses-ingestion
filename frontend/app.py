@@ -16,7 +16,7 @@ from backend.validation.validators.file_validators import (
     ChecksumValidator,
     SchemaValidator,
 )
-from backend.tasks.silver_layer_tasks import load_data_to_silver
+from backend.ingestion.silver_layer import load_data_to_silver
 from sqlalchemy import create_engine, text
 
 # Load credentials
