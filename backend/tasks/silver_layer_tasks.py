@@ -5,6 +5,7 @@ This module contains the task to load the files stored in Google Drive to the si
 from io import BytesIO
 import pandas as pd
 from backend.models.models import Expense
+from backend.validation.validators.expense_validators import ExpenseValidator
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
 
@@ -47,23 +48,10 @@ def load_data_to_silver(
         except Exception as e:
             raise Exception(f"Failed to read file content: {e}")
 
-        # STEP 4: Clean the data TODO: this should be in a separate pipeline
+        # STEP 4: Clean the data by calling the clean_expense_data method
         try:
-            # Remove leading and trailing whitespace from column names
-            df.columns = df.columns.str.strip()
-
-            # Convert the transaction_date column to date format (eg. 25.02.25)
-            df["TRANSACTION_DATE"] = pd.to_datetime(
-                df["TRANSACTION_DATE"], format=file_config.date_format
-            )
-
-            # Convert the amount column to float format and apply the amount sign
-            df["AMOUNT"] = pd.to_numeric(df["AMOUNT"]) * file_config.amount_sign
-
-            # Create a new column for the account name if it doesn't exist
-            if "ACCOUNT" not in df.columns:
-                df["ACCOUNT"] = None
-
+            validator = ExpenseValidator(file_config)
+            df = validator.clean_expense_data(df)
         except Exception as e:
             raise Exception(f"Failed to clean data: {e}")
 
@@ -72,25 +60,11 @@ def load_data_to_silver(
         failed_expenses = []
 
         for _, row in df.iterrows():
-            try:
-                expense = Expense(
-                    file_id=file_id,
-                    transaction_date=row["TRANSACTION_DATE"],
-                    amount=row["AMOUNT"],
-                    description=row["DESCRIPTION"],
-                    account=row["ACCOUNT"],
-                )
+            expense, error = validator.validate_expense_row(row)
+            if error:
+                failed_expenses.append(error)
+            else:
                 expenses.append(expense)
-            except Exception as e:
-                failed_expense = {
-                    "file_id": file_id,
-                    "transaction_date": str(row["TRANSACTION_DATE"]),
-                    "amount": str(row["AMOUNT"]),
-                    "description": str(row["DESCRIPTION"]),
-                    "account": str(row["ACCOUNT"]),
-                    "error_message": str(e),
-                }
-                failed_expenses.append(failed_expense)
 
         # STEP 6: Insert the data into the database
 

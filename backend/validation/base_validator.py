@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+
+# base validator for file validation
 class BaseValidator(ABC):
     """Base class for all validators."""
 
@@ -13,13 +15,16 @@ class BaseValidator(ABC):
         """
         pass
 
+
 class FileValidatorPipeline:
     """Pipeline to validate a file using multiple validators."""
 
     def __init__(self, validators: list[BaseValidator]):
         self.validators = validators
 
-    def run_validations(self, file_content: bytes, file_metadata: dict) -> tuple[bool, str]:
+    def run_validations(
+        self, file_content: bytes, file_metadata: dict
+    ) -> tuple[bool, str]:
         """
         Run all validators and stop at the first failure.
         :return: (is_valid, error_message)
@@ -28,5 +33,5 @@ class FileValidatorPipeline:
             is_valid, message = validator.validate(file_content, file_metadata)
             if not is_valid:
                 return False, message
-        
+
         return True, "File is valid."
