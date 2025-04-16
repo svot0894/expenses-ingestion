@@ -2,7 +2,7 @@
 This module contains the task to load the files stored in Google Drive to the silver layer.
 """
 
-import io
+from io import BytesIO
 import pandas as pd
 from backend.models.models import Expense
 from backend.core.google_drive_handler import GoogleDriveHandler
@@ -39,7 +39,7 @@ def load_data_to_silver(
         # STEP 3: Read the file in CSV format
         try:
             df = pd.read_csv(
-                io.BytesIO(file_content),
+                BytesIO(file_content),
                 encoding=file_config.encoding,
                 sep=file_config.delimiter,
                 decimal=file_config.decimal_separator,
@@ -59,6 +59,10 @@ def load_data_to_silver(
 
             # Convert the amount column to float format and apply the amount sign
             df["AMOUNT"] = pd.to_numeric(df["AMOUNT"]) * file_config.amount_sign
+
+            # Create a new column for the account name if it doesn't exist
+            if "ACCOUNT" not in df.columns:
+                df["ACCOUNT"] = None
 
         except Exception as e:
             raise Exception(f"Failed to clean data: {e}")

@@ -2,7 +2,7 @@
 
 import os
 import sys
-import time
+import ast
 import streamlit as st
 import pandas as pd
 
@@ -23,15 +23,6 @@ from sqlalchemy import create_engine, text
 SCOPES = st.secrets.google_drive_api.scopes
 FOLDER_ID = st.secrets.google_drive_api.folder_id
 
-# Initialize handlers
-validators = [
-    ChecksumValidator(),
-    SchemaValidator(
-        expected_schema={"TRANSACTION_DATE", "DESCRIPTION", "AMOUNT", "ACCOUNT"}
-    ),
-]
-validation_pipeline = FileValidatorPipeline(validators)
-
 drive_handler = GoogleDriveHandler(st.secrets)
 file_handler = FileHandler()
 
@@ -50,7 +41,7 @@ if uploaded_files:
             rollback_actions = []
 
             try:
-                st.write("🔄 **Step 1:** Reading file content...")
+                st.write("🔄 **Step 1:** Creating file metadata...")
                 file_content = uploaded_file.getvalue()
                 file_metadata = {
                     "file_name": uploaded_file.name,
@@ -60,21 +51,38 @@ if uploaded_files:
                     ),
                 }
 
-                progress_bar = st.progress(10)
+                progress_bar = st.progress(20)
 
-                # Step 2: Run validators
-                st.write("🔍 **Step 2:** Running file validators...")
+                # Step 2: Setting up validators
+                st.write("🔍 **Step 2:** Setting up file validators...")
+
+                file_config = file_handler.get_file_config(
+                    file_metadata["file_config_id"]
+                )
+
+                validators = [
+                    ChecksumValidator(),
+                    SchemaValidator(
+                        file_config=file_config,
+                    ),
+                ]
+                validation_pipeline = FileValidatorPipeline(validators)
+
+                progress_bar.progress(40)
+
+                # Step 3: Running validators
+                st.write("🔍 **Step 3:** Running file validators...")
+
                 is_valid, message = validation_pipeline.run_validations(
                     file_content, file_metadata
                 )
-
                 if not is_valid:
-                    raise Exception(f"File didn't pass validations: {message}")
+                    raise RuntimeError(f"File didn't pass validations: {message}")
 
-                progress_bar.progress(50)
+                progress_bar.progress(60)
 
-                # Step 3: Upload to Google Drive
-                st.write("☁️ **Step 3:** Uploading file to Google Drive...")
+                # Step 4: Upload to Google Drive
+                st.write("☁️ **Step 4:** Uploading file to Google Drive...")
                 is_valid, file_id, message = drive_handler.upload_file(
                     uploaded_file, folder_id=FOLDER_ID
                 )
@@ -87,8 +95,8 @@ if uploaded_files:
 
                 progress_bar.progress(80)
 
-                # Step 4: Store metadata in database
-                st.write("🗄️ **Step 4:** Storing file metadata...")
+                # Step 5: Store metadata in database
+                st.write("🗄️ **Step 5:** Storing file metadata...")
 
                 expenses_file = ExpensesFile(
                     file_id=file_id,

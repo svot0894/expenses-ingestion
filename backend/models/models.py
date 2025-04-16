@@ -1,3 +1,7 @@
+"""Database models for the expenses tracker application."""
+
+from datetime import datetime
+import hashlib
 from sqlalchemy import (
     Column,
     Integer,
@@ -9,8 +13,6 @@ from sqlalchemy import (
     ForeignKey,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
-import hashlib
 
 Base = declarative_base()
 
@@ -49,6 +51,7 @@ class FileConfiguration(Base, BaseModel):
     delimiter = Column(String, default=",", nullable=False)
     decimal_separator = Column(String, default=".", nullable=False)
     encoding = Column(String, default="Windows-1252", nullable=True)
+    expected_schema = Column(String, nullable=True)
     description = Column(String, default="", nullable=False)
 
 
