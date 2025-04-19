@@ -144,8 +144,8 @@ st.caption("Select a file to start processing and track its status.")
 
 is_valid, file_list = file_handler.get_all_files()
 
-if not file_list:
-    st.info("No files found in the database.")
+if not is_valid:
+    st.error({file_list})
 else:
     data = [expense_instance.model_dump(mode="json") for expense_instance in file_list]
     df = pd.DataFrame(data)
@@ -169,47 +169,3 @@ else:
                 st.success("✅ File processed successfully.")
         else:
             st.warning("This file has already been processed.")
-
-st.subheader("Savings Rate")
-# Query table g_sch.g_t_expenses and create a chart to show savings rate
-
-
-# Initialize database connection
-db_url = os.getenv("DATABASE_URL")
-engine = create_engine(db_url)
-
-query = """
-SELECT
-    monthDate,
-    savings / salary AS savings_rate,
-    AVG(savings / salary) OVER (ORDER BY monthDate ROWS BETWEEN 11 PRECEDING AND CURRENT ROW) AS avg_savings_rate_12_months
-FROM (
-    SELECT
-        date_trunc('month', transaction_date) AS monthDate,
-        sum(CASE WHEN account ILIKE 'compte épargne bonus%' THEN amount ELSE 0 END) AS savings,
-        sum(CASE WHEN category = 'Salary' THEN amount ELSE 0 END) AS salary
-    FROM g_sch.g_t_expenses
-    GROUP BY date_trunc('month', transaction_date)
-    ORDER BY date_trunc('month', transaction_date) ASC
-) a;
-"""
-
-try:
-    with engine.connect() as connection:
-        result = connection.execute(text(query))
-        data = result.fetchall()
-
-    if not data:
-        st.info("No data available for savings rate chart.")
-    else:
-        df = pd.DataFrame(
-            data, columns=["monthDate", "savings_rate", "avg_savings_rate_12_months"]
-        )
-        df["monthDate"] = pd.to_datetime(df["monthDate"], utc=True)
-        df.set_index("monthDate", inplace=True)
-
-        st.line_chart(
-            df[["savings_rate", "avg_savings_rate_12_months"]], use_container_width=True
-        )
-except Exception as e:
-    st.error(f"❌ Failed to fetch data for savings rate chart: {str(e)}")

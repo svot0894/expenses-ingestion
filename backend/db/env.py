@@ -36,11 +36,9 @@ target_metadata = Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
-db_pass = os.getenv("SUPABASE_DB_PWD")
-
 def include_object(object, name, type_, reflected, compare_to):
     if type_ in ("table", "index", "constraint"):
-        return getattr(object, "schema", None) in ('config_sch', 's_sch')
+        return getattr(object, "schema", None) in ('config_sch', 's_sch', 'g_sch')
     return True
 
 
@@ -56,7 +54,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url").format(db_pass)
+    url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,

@@ -11,6 +11,7 @@ from sqlalchemy import (
     Date,
     Float,
     ForeignKey,
+    func
 )
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -121,6 +122,7 @@ class Expense(Base, BaseModel):
     transaction_date = Column(Date, nullable=False)
     description = Column(String(255))
     amount = Column(Float, nullable=False)
+    category = Column(String, nullable=True)
     account = Column(String(255), nullable=True)
 
 
@@ -138,4 +140,51 @@ class FailedExpense(Base, BaseModel):
     description = Column(String, nullable=True)
     amount = Column(String, nullable=True)
     account = Column(String, nullable=True)
+    category = Column(String, nullable=True)
     error_message = Column(String, nullable=True)
+
+class MonthlyExpenses(Base, BaseModel):
+    __tablename__ = "g_t_monthly_summary"
+    __table_args__ = {"schema": "g_sch"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_month = Column(Date, nullable=False, index=True)
+    total_expenses = Column(Float(12, 2), nullable=False)
+    total_earnings = Column(Float(12, 2), nullable=False)
+    total_savings = Column(Float(12, 2), nullable=False)
+    prev_month_expenses = Column(Float(12, 2), nullable=False)
+    prev_month_earnings = Column(Float(12, 2), nullable=False)
+    prev_month_savings = Column(Float(12, 2), nullable=False)
+    inserted_datetime = Column(DateTime, server_default=func.now())
+
+class CategoryExpenses(Base, BaseModel):
+    __tablename__ = "g_t_category_expense_summary"
+    __table_args__ = {"schema": "g_sch"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_month = Column(Date, nullable=False, index=True)
+    category = Column(String, nullable=False)
+    total_expenses = Column(Float(12, 2), nullable=False)
+    inserted_datetime = Column(DateTime, server_default=func.now())
+
+
+class MonthlySavings(Base, BaseModel):
+    __tablename__ = "g_t_savings_rate_summary"
+    __table_args__ = {"schema": "g_sch"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_month = Column(Date, nullable=False, index=True)
+    savings_rate = Column(Float(5, 4), nullable=False)
+    inserted_datetime = Column(DateTime, server_default=func.now())
+
+class GoldPipelineConfig(Base, BaseModel):
+    __tablename__ = "g_t_pipeline_config"
+    __table_args__ = {"schema": "g_sch"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    g_table_name = Column(String, nullable=False, unique=True)  # Logical name
+    module_path = Column(String, nullable=False)  # Path to generator class
+    active = Column(Boolean, default=True)
+    run_frequency = Column(String, nullable=True)  # e.g. 'monthly', 'manual'
+    last_run = Column(DateTime, nullable=True)
+    inserted_datetime = Column(DateTime, server_default=func.now())
