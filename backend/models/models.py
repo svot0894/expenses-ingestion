@@ -148,13 +148,10 @@ class MonthlyExpenses(Base, BaseModel):
     __table_args__ = {"schema": "g_sch"}
 
     id = Column(Integer, primary_key=True, index=True)
-    transaction_month = Column(Date, nullable=False, index=True)
+    transaction_month = Column(Date, nullable=False, index=True, unique=True)
     total_expenses = Column(Float(12, 2), nullable=False)
     total_earnings = Column(Float(12, 2), nullable=False)
     total_savings = Column(Float(12, 2), nullable=False)
-    prev_month_expenses = Column(Float(12, 2), nullable=False)
-    prev_month_earnings = Column(Float(12, 2), nullable=False)
-    prev_month_savings = Column(Float(12, 2), nullable=False)
     inserted_datetime = Column(DateTime, server_default=func.now())
 
 class CategoryExpenses(Base, BaseModel):
@@ -184,6 +181,7 @@ class GoldPipelineConfig(Base, BaseModel):
     id = Column(Integer, primary_key=True, index=True)
     g_table_name = Column(String, nullable=False, unique=True)  # Logical name
     module_path = Column(String, nullable=False)  # Path to generator class
+    class_name = Column(String, nullable=True)  # Name of the generator class
     active = Column(Boolean, default=True)
     run_frequency = Column(String, nullable=True)  # e.g. 'monthly', 'manual'
     last_run = Column(DateTime, nullable=True)

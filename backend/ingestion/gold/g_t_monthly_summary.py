@@ -23,20 +23,14 @@ class MonthlySummaryGenerator:
             }
 
             # insert or update the monthly summary
+            # Use the insert statement with on_conflict_do_update
+            # to handle conflicts based on the transaction_month
+            # and update the existing record
             statement = insert(MonthlyExpenses).values(summary_data)
             statement = statement.on_conflict_do_update(
                 index_elements=['transaction_month'],
                 set_=summary_data
             )
             db_session.execute(statement)
-        
-        # update ingested_datetime field in silver layer table
-        db_session.query(Expense).filter(
-            func.date_trunc('month', Expense.transaction_date) == data.month,
-            Expense.ingested_datetime.is_(None)
-        ).update(
-            {Expense.ingested_datetime: func.now},
-            synchronize_session=False
-        )
 
         db_session.commit()
