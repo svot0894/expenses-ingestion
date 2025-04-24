@@ -11,6 +11,7 @@ from sqlalchemy import (
     Date,
     Float,
     ForeignKey,
+    UniqueConstraint,
     func
 )
 from sqlalchemy.ext.declarative import declarative_base
@@ -145,7 +146,11 @@ class FailedExpense(Base, BaseModel):
 
 class MonthlyExpenses(Base, BaseModel):
     __tablename__ = "g_t_monthly_summary"
-    __table_args__ = {"schema": "g_sch"}
+    # Unique constraint on transaction_month to ensure no duplicates
+    __table_args__ = (
+        UniqueConstraint("transaction_month", name="transaction_month_unique_constraint"),
+        {"schema": "g_sch"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     transaction_month = Column(Date, nullable=False, index=True, unique=True)
@@ -156,7 +161,10 @@ class MonthlyExpenses(Base, BaseModel):
 
 class CategoryExpenses(Base, BaseModel):
     __tablename__ = "g_t_category_expense_summary"
-    __table_args__ = {"schema": "g_sch"}
+    __table_args__ = (
+        UniqueConstraint("transaction_month", "category", name="transaction_month_category_unique_constraint"),
+        {"schema": "g_sch"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     transaction_month = Column(Date, nullable=False, index=True)
