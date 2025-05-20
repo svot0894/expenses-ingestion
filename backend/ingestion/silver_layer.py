@@ -83,25 +83,26 @@ def load_data_to_silver(
                 cleaning_pipeline = CleaningPipeline(cleaners)
                 cleaned_rows = cleaning_pipeline.run(row)
 
-                expense = Expense(
-                    file_id=file_id,
-                    transaction_date=cleaned_rows.transaction_date,
-                    amount=cleaned_rows.amount,
-                    description=cleaned_rows.description,
-                )
-                valid_expenses.append(expense)
-            else:
-                # run error handling steps
-                failed_expense = FailedExpense(
-                    file_id=file_id,
-                    transaction_date=str(row.transaction_date),
-                    amount=str(row.amount),
-                    description=str(row.description),
-                    error_message=error_message,
-                )
-                failed_expenses.append(failed_expense)
-
-        # STEP 6: Insert the data into the database
+                try:
+                    expense = Expense(
+                        file_id=file_id,
+                        transaction_date=cleaned_rows.TRANSACTION_DATE,
+                        amount=cleaned_rows.AMOUNT,
+                        description=cleaned_rows.DESCRIPTION,
+                        category=cleaned_rows.CATEGORY,
+                    )
+                    valid_expenses.append(expense)
+                except Exception as e:
+                    # run error handling steps
+                    failed_expense = FailedExpense(
+                        file_id=file_id,
+                        transaction_date=str(row.TRANSACTION_DATE),
+                        amount=str(row.AMOUNT),
+                        description=str(row.DESCRIPTION),
+                        category=str(row.CATEGORY),
+                        error_message=str(e),
+                    )
+                    failed_expenses.append(failed_expense)
 
         # Insert good data into s_t_expenses
         for expense in valid_expenses:

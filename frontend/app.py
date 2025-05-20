@@ -10,14 +10,13 @@ sys.path.append(os.getcwd())
 
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
-from backend.models.models import ExpensesFile
+from backend.models.models import Files
 from backend.validation.base_validator import FileValidatorPipeline
 from backend.validation.validators.file_validators import (
     ChecksumValidator,
     SchemaValidator,
 )
 from backend.ingestion.silver_layer import load_data_to_silver
-from sqlalchemy import create_engine, text
 
 # Load credentials
 SCOPES = st.secrets.google_drive_api.scopes
@@ -98,13 +97,14 @@ if uploaded_files:
                 # Step 5: Store metadata in database
                 st.write("🗄️ **Step 5:** Storing file metadata...")
 
-                expenses_file = ExpensesFile(
+                expenses_file = Files(
                     file_id=file_id,
+                    file_source=file_metadata["file_name"].split("_")[0],
                     file_name=file_metadata["file_name"],
                     file_size=file_metadata["file_size"],
                     number_rows=file_content.count(b"\n") - 1,  # exclude header
                     checksum=file_metadata["checksum"],
-                    account_type=file_metadata["file_name"].split("_")[0],
+                    file_status_id=1,  # 1 = uploaded
                     file_config_id=file_metadata["file_config_id"],
                 )
 

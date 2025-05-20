@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.models.models import (
     Expense,
     FailedExpense,
-    ExpensesFile,
+    Files,
     FileConfiguration,
 )
 
@@ -22,7 +22,7 @@ class FileHandler:
         self.engine = create_engine(self.database_url)
         self.Session = sessionmaker(bind=self.engine)
 
-    def upload_file_metadata(self, file: ExpensesFile) -> tuple[bool, str]:
+    def upload_file_metadata(self, file: Files) -> tuple[bool, str]:
         """Store file metadata in the database"""
         session = self.Session()
         try:
@@ -42,8 +42,8 @@ class FileHandler:
         session = self.Session()
         try:
             statement = (
-                update(ExpensesFile)
-                .where(ExpensesFile.file_id == file_id)
+                update(Files)
+                .where(Files.file_id == file_id)
                 .values({attribute: value})
             )
             session.execute(statement)
@@ -60,8 +60,8 @@ class FileHandler:
         session = self.Session()
         try:
             response = (
-                session.query(ExpensesFile)
-                .filter(ExpensesFile.checksum == checksum)
+                session.query(Files)
+                .filter(Files.checksum == checksum)
                 .first()
             )
             if response:
@@ -77,7 +77,7 @@ class FileHandler:
         session = self.Session()
         try:
             statement = text(
-                "SELECT config_id FROM config_sch.cfg_t_file_config WHERE :file_name ~ file_pattern"
+                "SELECT config_id FROM cfg_sch.cfg_t_file_config WHERE :file_name ~ file_pattern"
             ).bindparams(file_name=file_name)
             response = session.execute(statement).first()
 
@@ -116,7 +116,7 @@ class FileHandler:
         """Retrieve all files from the database"""
         session = self.Session()
         try:
-            response = session.query(ExpensesFile).all()
+            response = session.query(Files).all()
             return True, response
         except Exception as e:
             return False, f"An error occurred while retrieving files: {e}"

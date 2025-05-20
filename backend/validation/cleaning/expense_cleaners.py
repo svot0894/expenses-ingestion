@@ -36,5 +36,17 @@ class FormatAmountSignCleaner(BaseCleaner):
         self.amount_sign = amount_sign
 
     def clean(self, row: pd.Series) -> pd.Series:
-        row["AMOUNT"] = row["AMOUNT"] * self.amount_sign
+        original_amount = str(row["AMOUNT"]).strip()
+
+        # Step 1: Remove thousands separator
+        # Convert to uniform format: remove thousands separator, use '.' as decimal
+        # Assume European format if both '.' and ',' are present
+        if "," in original_amount and "." in original_amount:
+            # Likely European: 1.234,56 -> 1234.56
+            cleaned = original_amount.replace(".", "").replace(",", ".")
+        else:
+            # US-style or simple number
+            cleaned = original_amount.replace(",", "")
+
+        row["AMOUNT"] = cleaned * self.amount_sign
         return row

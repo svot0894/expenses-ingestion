@@ -31,14 +31,4 @@ source venv/bin/activate
     streamlit run ./frontend/app.py
 
 Database migrations:
-To detect changes using Alembic, run the following command:
-
-```bash
-alembic revision --autogenerate -m "Your migration message here"
-```
-
-To apply the database migrations after detecting changes, run the following command:
-
-```bash
-alembic upgrade head
-```
+TBD

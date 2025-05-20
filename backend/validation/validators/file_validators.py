@@ -3,7 +3,7 @@ import ast
 from io import StringIO
 from backend.validation.base_validator import BaseValidator
 from backend.core.file_handler import FileHandler
-from backend.models.models import ExpensesFile, FileConfiguration
+from backend.models.models import Files, FileConfiguration
 
 
 class ChecksumValidator(BaseValidator):
@@ -13,7 +13,7 @@ class ChecksumValidator(BaseValidator):
         self.file_handler = FileHandler()
 
     def validate(self, file_content: bytes, file_metadata: dict) -> tuple[bool, str]:
-        checksum = ExpensesFile.generate_checksum(file_content)
+        checksum = Files.generate_checksum(file_content)
         file_found, message = self.file_handler.get_file_by_checksum(checksum)
 
         if file_found:

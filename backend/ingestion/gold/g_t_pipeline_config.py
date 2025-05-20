@@ -5,7 +5,7 @@ import sys
 # This is a workaround to add the project root to the path
 sys.path.append(os.getcwd())
 
-from backend.models.models import GoldPipelineConfig
+from backend.models.models import PipelineConfiguration
 
 
 class GoldPipelineRunner:
@@ -13,7 +13,7 @@ class GoldPipelineRunner:
         self.db = db_session
 
     def run(self):
-        configs = self.db.query(GoldPipelineConfig).filter_by(active=True).all()
+        configs = self.db.query(PipelineConfiguration).filter_by(active=True).all()
         for config in configs:
             try:
                 # Dynamically import the module

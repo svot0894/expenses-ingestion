@@ -1,10 +1,12 @@
 import streamlit as st
+import pandas as pd
 from datetime import datetime
 from calendar import month_abbr
 
 from backend.core.dashboard.gold_queries import (
     get_monthly_summary,
     get_previous_monthly_summary,
+    get_savings_rate_summary,
 )
 
 from backend.core.database_handler import DatabaseHandler
@@ -36,25 +38,40 @@ try:
         is_valid1, kpis_data = get_monthly_summary(session, report_month_date)
         is_valid2, previous_kpis_data = get_previous_monthly_summary(session, report_month_date)
 
-    if is_valid1 and is_valid2:
-        try:
-            total_expenses_diff = kpis_data.total_expenses - previous_kpis_data.total_expenses
-            total_earnings_diff = kpis_data.total_earnings - previous_kpis_data.total_earnings
-            total_savings_diff = kpis_data.total_savings - previous_kpis_data.total_savings
+    if is_valid1:
+        col1, col2, col3 = st.columns(3)
 
-            total_expenses_change = round(total_expenses_diff / previous_kpis_data.total_expenses, 4) * 100
-            total_earnings_change = round(total_earnings_diff / previous_kpis_data.total_earnings, 4) * 100
-            total_savings_change = round(total_savings_diff / previous_kpis_data.total_savings, 4) * 100
+        if is_valid2:
+            try:
+                total_expenses_diff = kpis_data.total_expenses - previous_kpis_data.total_expenses
+                total_earnings_diff = kpis_data.total_earnings - previous_kpis_data.total_earnings
+                total_savings_diff = kpis_data.total_savings - previous_kpis_data.total_savings
 
-            col1, col2, col3 = st.columns(3)
+                total_expenses_change = (
+                    round(total_expenses_diff / previous_kpis_data.total_expenses, 4) * 100
+                    if previous_kpis_data.total_expenses else 0
+                )
+                total_earnings_change = (
+                    round(total_earnings_diff / previous_kpis_data.total_earnings, 4) * 100
+                    if previous_kpis_data.total_earnings else 0
+                )
+                total_savings_change = (
+                    round(total_savings_diff / previous_kpis_data.total_savings, 4) * 100
+                    if previous_kpis_data.total_savings else 0
+                )
 
-            col1.metric("💸 Total Expenses", float(kpis_data.total_expenses), f"{float(total_expenses_change)}%")
-            col2.metric("💰 Total Earnings", float(kpis_data.total_earnings), f"{float(total_earnings_change)}%")
-            col3.metric("🧮 Total Savings", float(kpis_data.total_savings), f"{float(total_savings_change)}%")
-        except ZeroDivisionError:
-            st.error("Division by zero occurred while calculating percentage changes.")
-        except Exception as e:
-            st.error(f"An unexpected error occurred while processing KPIs: {e}")
+                col1.metric("💸 Total Expenses", float(kpis_data.total_expenses), f"{float(total_expenses_change)}%")
+                col2.metric("💰 Total Earnings", float(kpis_data.total_earnings), f"{float(total_earnings_change)}%")
+                col3.metric("🧮 Total Savings", float(kpis_data.total_savings), f"{float(total_savings_change)}%")
+            except ZeroDivisionError:
+                st.error("Division by zero occurred while calculating percentage changes.")
+            except Exception as e:
+                st.error(f"An unexpected error occurred while processing KPIs: {e}")
+        else:
+            col1.metric("💸 Total Expenses", float(kpis_data.total_expenses), "N/A")
+            col2.metric("💰 Total Earnings", float(kpis_data.total_earnings), "N/A")
+            col3.metric("🧮 Total Savings", float(kpis_data.total_savings), "N/A")
+            st.info("No data available for the previous month to calculate changes.")
     else:
         st.warning("No data available for the selected month.")
 except Exception as e:
@@ -73,5 +90,16 @@ st.markdown("---")
 # --- Dashboard 2: Overall Savings Rate ---
 st.subheader("💼 Overall Savings Rate")
 
-#savings_rate = get_savings_rate()
-#st.metric("💹 Savings Rate", f"{savings_rate:.2f}%")
+with db_handler.get_db_session() as session:
+    is_valid, savings_rate = get_savings_rate_summary(session)
+
+if is_valid:
+    # convert savings_rate to a DataFrame
+    savings_rate_df = pd.DataFrame(
+        [(r.transaction_month, r.savings_rate) for r in savings_rate],
+        columns=["transaction_month", "savings_rate"]
+    )
+    savings_rate_df["transaction_month"] = pd.to_datetime(savings_rate_df["transaction_month"])
+    savings_rate_df["savings_rate"] = pd.to_numeric(savings_rate_df["savings_rate"], errors="coerce")
+
+    st.line_chart(savings_rate_df.set_index("transaction_month"))
