@@ -4,6 +4,7 @@ This module contains the task to load the files stored in Google Drive to the si
 
 from io import BytesIO
 import pandas as pd
+from backend.core.types import Result
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
 from backend.models.models import Expense, FailedExpense
@@ -25,7 +26,7 @@ def load_data_to_silver(
     file_config_id: int,
     drive_handler: GoogleDriveHandler,
     file_handler: FileHandler,
-) -> tuple[bool, str]:
+) -> Result:
     """
     Task to load the files stored in Google Drive to the silver layer.
     This task:
@@ -39,13 +40,30 @@ def load_data_to_silver(
 
     try:
         # STEP 1: Download the file from Google Drive
-        is_valid, file_content = drive_handler.download_file(file_id)
+        result = drive_handler.download_file(file_id)
 
-        if not is_valid:
-            raise Exception(f"Failed to download file with ID: {file_id}")
+        if not result.success:
+            return Result(
+                success=False,
+                message=f"""
+                Failed to download file with ID: {file_id}.
+                Reason: {result.message}""",
+            )
+
+        file_content = result.data
 
         # STEP 2: Fetch file configuration from the database
-        file_config = file_handler.get_file_config(file_config_id)
+        result = file_handler.get_file_config(file_config_id)
+
+        if not result.success:
+            return Result(
+                success=False,
+                message=f"""
+                Failed to fetch file configuration with ID: {file_config_id}.
+                Reason: {result.message}""",
+            )
+
+        file_config = result.data
 
         # STEP 3: Read the file in CSV format
         try:
@@ -56,7 +74,10 @@ def load_data_to_silver(
                 decimal=file_config.decimal_separator,
             )
         except Exception as e:
-            raise Exception(f"Failed to read file content: {e}")
+            return Result(
+                success=False,
+                message=f"Failed to read file content: {e}",
+            )
 
         # STEP 4: Run validators
         validators = [
@@ -70,9 +91,9 @@ def load_data_to_silver(
         failed_expenses = []
 
         for _, row in df.iterrows():
-            is_valid, error_message = validator_pipeline.run_validations(row)
+            result = validator_pipeline.run_validations(row)
 
-            if is_valid:
+            if result.success:
                 # run cleaning steps
                 cleaners = [
                     TrimColumnCleaner(),
@@ -106,23 +127,31 @@ def load_data_to_silver(
 
         # Insert good data into s_t_expenses
         for expense in valid_expenses:
-            is_valid, message = file_handler.insert_expenses(
-                expense, data_condition="good"
-            )
+            result = file_handler.insert_expenses(expense, data_condition="good")
 
-            if not is_valid:
-                raise Exception(f"Failed to insert data into the database: {message}")
+            if not result.success:
+                return Result(
+                    success=False,
+                    message=f"""
+                    Failed to insert data into the database.
+                    Reason: {result.message}""",
+                )
 
         # Insert bad data into s_t_expenses_error
         for failed_expense in failed_expenses:
-            is_valid, message = file_handler.insert_expenses(
+            result = file_handler.insert_expenses(
                 failed_expense, data_condition="error"
             )
 
-        if not is_valid:
-            raise Exception(f"Failed to insert error data into the database: {message}")
+            if not result.success:
+                return Result(
+                    success=False,
+                    message=f"""
+                    Failed to insert error data into the database.
+                    Reason: {result.message}""",
+                )
 
-        # STEP 7: Update the status and ingested datetime of the file in the database
+        # STEP 7: Update the status and ingested datetime of the file
         if not failed_expenses:
             file_status = 3  # Completed
         elif valid_expenses and failed_expenses:
@@ -130,10 +159,18 @@ def load_data_to_silver(
         else:
             file_status = 9  # Failed
 
-        file_handler.update_file_metadata(file_id, "file_status_id", file_status)
-        file_handler.update_file_metadata(file_id, "ingested_datetime", "now()")
+        try:
+            file_handler.update_file_metadata(file_id, "file_status_id", file_status)
+            file_handler.update_file_metadata(file_id, "ingested_datetime", "now()")
+        except Exception as e:
+            return Result(
+                success=False,
+                message=f"""
+                Failed to update file metadata in the database.
+                Reason: {str(e)}""",
+            )
 
         # STEP 8: Return the result of the task
-        return True, "File loaded successfully to the silver layer."
+        return Result(success=True, message="Data loaded to the silver layer.")
     except Exception as e:
-        return False, str(e)
+        return Result(success=False, message=str(e))

@@ -1,15 +1,17 @@
 # backend/core/database_handler.py
 
+import os
+from contextlib import contextmanager
+from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateSchema
-import os
 from dotenv import load_dotenv
-from contextlib import contextmanager
 
 
 load_dotenv()
+
 
 class DatabaseHandler:
     """
@@ -17,17 +19,19 @@ class DatabaseHandler:
     Provides flexibility for managing database connections.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.database_url = os.getenv("DATABASE_URL")
 
         if not self.database_url:
             raise ValueError("DATABASE_URL not set in environment variables")
-        
+
         self.engine = create_engine(self.database_url, future=True)
-        self._session_local = sessionmaker(bind=self.engine)
+        self._session_local = sessionmaker(
+            bind=self.engine, autocommit=False, autoflush=True
+        )
 
     @contextmanager
-    def get_db_session(self) -> Session:
+    def get_db_session(self) -> Generator[Session, None, None]:
         """
         Creates and yields a new SQLAlchemy session.
         Automatically closes the session after use.
@@ -35,16 +39,17 @@ class DatabaseHandler:
         session = self._session_local()
         try:
             yield session
-        except Exception as e:
+            session.commit()
+        except Exception:
             session.rollback()
+            raise
         finally:
             session.close()
-    
-    def create_schema(self, schema_name: str):
+
+    def create_schema(self, schema_name: str) -> None:
         """
         Creates a new schema in the database.
         """
         with self.engine.connect() as connection:
             connection.execute(CreateSchema(schema_name, if_not_exists=True))
             connection.commit()
-

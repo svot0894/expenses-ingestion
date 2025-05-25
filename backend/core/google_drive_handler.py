@@ -5,28 +5,33 @@ This module provides a class `GoogleDriveHandler`:
 Classes:
     GoogleDriveHandler: Handles authentication and files upload.
 Usage example:
-    handler = GoogleDriveHandler('path/to/credentials.json', ['https://www.googleapis.com/auth/drive'])
+    handler = GoogleDriveHandler(
+    'path/to/credentials.json',
+    ['https://www.googleapis.com/auth/drive']
+    )
     handler.upload_file('path/to/local/file.txt')
 """
 
 import io
 import os
+from typing import Optional
 import pickle
-from googleapiclient.discovery import build
+from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from backend.core.types import Result
 
 
 class GoogleDriveHandler:
     """Handles authentication and files upload to Google Drive"""
 
-    def __init__(self, config_path):
-        self.config = config_path
+    def __init__(self, config: dict) -> None:
+        self.config = config
         self.service = self.authenticate()
 
-    def authenticate(self):
+    def authenticate(self) -> Resource:
         """The file token.pickle stores the user's access and refresh tokens
         Created automatically when the auth flow completes the 1st time."""
         creds = None
@@ -51,71 +56,103 @@ class GoogleDriveHandler:
         service = build("drive", "v3", credentials=creds)
         return service
 
-    def upload_file(self, uploaded_file : str, folder_id : str = None)-> tuple[bool, str, str]:
+    def upload_file(self, file_path: str, folder_id: Optional[str] = None) -> Result:
         """
         Uploads a file to Google Drive.
 
         Args:
-            uploaded_file (str): Local file path to upload.
+            file_path (str): Local file path to upload.
             folder_id (str, optional): Google Drive folder ID to upload the file to.
 
         Returns:
-            bool, str, str: Uploaded file ID if successful, else None.
+            Result: Uploaded file ID if successful, else None.
         """
 
         try:
-            file_metadata = {"name": uploaded_file.name}
+            file_metadata = {"name": file_path.name}
 
             if folder_id:
                 file_metadata["parents"] = [folder_id]
 
-            media = MediaIoBaseUpload(
-                uploaded_file, mimetype="text/csv", resumable=True
-            )
-            file = (
+            media = MediaIoBaseUpload(file_path, mimetype="text/csv", resumable=True)
+            uploaded_file = (
                 self.service.files()
                 .create(body=file_metadata, media_body=media, fields="id")
                 .execute()
             )
 
+            return Result(
+                success=True,
+                message="File uploaded successfully.",
+                data=uploaded_file.get("id"),
+            )
+
         except HttpError as error:
-            return False, None, f"An error occurred: {error}"
+            return Result(
+                success=False,
+                message=f"An error occurred while uploading the file: {error}",
+            )
+        except FileNotFoundError:
+            return Result(
+                success=False,
+                message=f"File not found: {file_path}",
+            )
+        except Exception as e:
+            return Result(
+                success=False,
+                message=f"An unexpected error occurred: {e}",
+            )
 
-        return True, file.get("id"), "File uploaded successfully."
-
-    def delete_file(self, file_id : str) -> tuple[bool, str]:
+    def delete_file(self, file_id: str) -> Result:
         """Delete a file from Google Drive.
 
         Args:
             file_id (str): The ID of the file to delete.
 
         Returns:
-            bool: True if the file was deleted successfully, False otherwise.
+            Result: Result object indicating success or failure.
         """
         try:
             body_value = {"trashed": True}
             self.service.files().update(fileId=file_id, body=body_value).execute()
-            return True, "File deleted successfully."
+            return Result(success=True, message="File deleted successfully.")
         except HttpError as error:
-            return False, f"An error occurred while trying to delete the file: {error}"
+            return Result(
+                success=False,
+                message=f"An error occurred while trying to delete the file: {error}",
+            )
 
-    def download_file(self, file_id : str, folder_id : str = None) -> tuple[bool, str]:
+    def download_file(self, file_id: str) -> Result:
         """Download a file from Google Drive.
 
         Args:
             file_id (str): The ID of the file to download.
-            folder_id (str, optional): The ID of the folder to save the downloaded file.
 
         Returns:
-            bool: True if the file was downloaded successfully, False otherwise.
+            Result: Result object indicating success or failure.
         """
         try:
             request = self.service.files().get_media(fileId=file_id)
             file = io.BytesIO()
             downloader = MediaIoBaseDownload(file, request)
             done = False
-            while done is False:
+
+            while not done:
                 status, done = downloader.next_chunk()
+
+            return Result(
+                success=True,
+                message="File downloaded successfully.",
+                data=file.getvalue(),
+            )
+
         except HttpError as error:
-            return False, f"An error occurred while trying to download the file: {error}"
-        return True, file.getvalue()
+            return Result(
+                success=False,
+                message=f"An error occurred while trying to download the file: {error}",
+            )
+        except Exception as e:
+            return Result(
+                success=False,
+                message=f"An unexpected error occurred: {e}",
+            )

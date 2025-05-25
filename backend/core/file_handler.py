@@ -1,7 +1,8 @@
-import os
+from typing import Any
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, update, select, insert, text
-from sqlalchemy.orm import sessionmaker
+from backend.core.types import Result
+from sqlalchemy import update, text
+from backend.core.database_handler import DatabaseHandler
 from backend.models.models import (
     Expense,
     FailedExpense,
@@ -13,119 +14,128 @@ load_dotenv()
 
 
 class FileHandler:
+    """
+    A class to handle file operations.
+    """
+
     def __init__(self):
-        self.database_url: str = os.getenv("DATABASE_URL")
+        self.db_handler = DatabaseHandler()
 
-        if not self.database_url:
-            raise ValueError("DATABASE_URL not set in environment variables")
-
-        self.engine = create_engine(self.database_url)
-        self.Session = sessionmaker(bind=self.engine)
-
-    def upload_file_metadata(self, file: Files) -> tuple[bool, str]:
+    def upload_file_metadata(self, file: Files) -> Result:
         """Store file metadata in the database"""
-        session = self.Session()
-        try:
-            session.add(file)
-            session.commit()
-            return True, "File metadata stored successfully"
-        except Exception as e:
-            session.rollback()
-            return False, f"An error occurred while storing file metadata: {e}"
-        finally:
-            session.close()
+        with self.db_handler.get_db_session() as session:
+            try:
+                session.add(file)
 
-    def update_file_metadata(
-        self, file_id: str, attribute: str, value: any
-    ) -> tuple[bool, str]:
+                return Result(
+                    success=True, message="File metadata stored successfully."
+                )
+            except Exception as e:
+                session.rollback()
+                return Result(
+                    success=False,
+                    message=f"An error occurred while storing file metadata: {e}",
+                )
+
+    def update_file_metadata(self, file_id: str, attribute: str, value: Any) -> Result:
         """Update the passed attribute of a file in the database"""
-        session = self.Session()
-        try:
-            statement = (
-                update(Files)
-                .where(Files.file_id == file_id)
-                .values({attribute: value})
-            )
-            session.execute(statement)
-            session.commit()
-            return True, "File attribute updated successfully"
-        except Exception as e:
-            session.rollback()
-            return False, f"An error occurred while updating file attribute: {e}"
-        finally:
-            session.close()
+        with self.db_handler.get_db_session() as session:
+            try:
+                statement = (
+                    update(Files)
+                    .where(Files.file_id == file_id)
+                    .values({attribute: value})
+                )
+                session.execute(statement)
 
-    def get_file_by_checksum(self, checksum: str) -> tuple[bool, str | dict]:
+                return Result(
+                    success=True, message="File attribute updated successfully."
+                )
+            except Exception as e:
+                session.rollback()
+                return Result(
+                    success=False,
+                    message=f"An error occurred while updating file attribute: {e}",
+                )
+
+    def get_file_by_checksum(self, checksum: str) -> Result:
         """Check if a file with the given checksum exists in the database"""
-        session = self.Session()
-        try:
-            response = (
-                session.query(Files)
-                .filter(Files.checksum == checksum)
-                .first()
-            )
-            if response:
-                return True, {"file_id": response.file_id}
-            return False, "No file found with the given checksum"
-        except Exception as e:
-            return False, f"An error occurred while checking for checksum: {e}"
-        finally:
-            session.close()
+        with self.db_handler.get_db_session() as session:
+            try:
+                response = (
+                    session.query(Files).filter(Files.checksum == checksum).first()
+                )
+                if response:
+                    return Result(success=True, data={"file_id": response.file_id})
+                return Result(
+                    success=False, message="No file found with the given checksum"
+                )
+            except Exception as e:
+                return Result(
+                    success=False,
+                    message=f"An error occurred while checking for checksum: {e}",
+                )
 
-    def determine_file_config_id(self, file_name: str) -> int:
+    def determine_file_config_id(self, file_name: str) -> Result:
         """Determine the file configuration ID based on the file name by comparing against existing patterns in file_pattern column of cfg_t_file_config table"""
-        session = self.Session()
-        try:
-            statement = text(
-                "SELECT config_id FROM cfg_sch.cfg_t_file_config WHERE :file_name ~ file_pattern"
-            ).bindparams(file_name=file_name)
-            response = session.execute(statement).first()
+        with self.db_handler.get_db_session() as session:
+            try:
+                statement = text(
+                    "SELECT config_id FROM cfg_sch.cfg_t_file_config WHERE :file_name ~ file_pattern"
+                ).bindparams(file_name=file_name)
+                response = session.execute(statement).first()
 
-            if response:
-                return int(response[0])  # Ensure the ID is returned as an integer
-            else:
-                return ValueError("No matching file configuration found.")
-        except Exception as e:
-            return RuntimeError(
-                f"An error occurred while determining file configuration ID: {e}"
-            )
-        finally:
-            session.close()
+                if response:
+                    return Result(
+                        success=True, data=int(response[0])
+                    )  # Ensure the ID is returned as an integer
+                else:
+                    return Result(
+                        success=False, message="No matching file configuration found."
+                    )
+            except Exception as e:
+                return Result(
+                    success=False,
+                    message=f"An error occurred while determining file configuration ID: {e}",
+                )
 
-    def get_file_config(self, file_config_id: int) -> FileConfiguration:
+    def get_file_config(self, file_config_id: int) -> Result:
         """Retrieve file configuration based on the file configuration ID"""
-        session = self.Session()
-        try:
-            response = (
-                session.query(FileConfiguration)
-                .filter(FileConfiguration.config_id == file_config_id)
-                .first()
-            )
-            if response:
-                return response
-            else:
-                return ValueError("No file configuration found with the given ID.")
-        except Exception as e:
-            raise RuntimeError(
-                f"An error occurred while retrieving file configuration: {e}"
-            )
-        finally:
-            session.close()
+        with self.db_handler.get_db_session() as session:
+            try:
+                response = (
+                    session.query(FileConfiguration)
+                    .filter(FileConfiguration.config_id == file_config_id)
+                    .first()
+                )
+                if response:
+                    return Result(success=True, data=response)
+                else:
+                    return Result(
+                        success=False,
+                        message="No file configuration found with the given ID.",
+                    )
+            except Exception as e:
+                return Result(
+                    success=False,
+                    message=f"An error occurred while retrieving file configuration: {e}",
+                )
 
-    def get_all_files(self) -> tuple[bool, str | list]:
+    def get_all_files(self) -> Result:
         """Retrieve all files from the database"""
-        session = self.Session()
-        try:
-            response = session.query(Files).all()
-            return True, response
-        except Exception as e:
-            return False, f"An error occurred while retrieving files: {e}"
-        finally:
-            session.close()
+        with self.db_handler.get_db_session() as session:
+            try:
+                response = session.query(Files).all()
+                return Result(success=True, data=response)
+            except Exception as e:
+                return Result(
+                    success=False,
+                    message=f"An error occurred while retrieving files: {e}",
+                )
 
     def insert_expenses(
         self, expense: Expense | FailedExpense, data_condition: str
-    ) -> tuple[bool, str]:
+    ) -> Result:
         """
         Load data to the respective table based on the data condition (good or error).
 
@@ -133,19 +143,21 @@ class FileHandler:
         - expense: Expense object or dict containing the data to be inserted.
         - data_condition: Condition to determine if the data is good or error.
         """
-        session = self.Session()
-        try:
-            if data_condition == "good" and isinstance(expense, Expense):
-                session.add(expense)
-            elif data_condition == "error" and isinstance(expense, dict):
-                session.add(expense)
-            else:
-                return False, "Invalid data type or condition"
+        with self.db_handler.get_db_session() as session:
+            try:
+                if data_condition == "good" and isinstance(expense, Expense):
+                    session.add(expense)
+                elif data_condition == "error" and isinstance(expense, FailedExpense):
+                    session.add(expense)
+                else:
+                    return Result(
+                        success=False, message="Invalid data type or condition"
+                    )
 
-            session.commit()
-            return True, "Data inserted successfully"
-        except Exception as e:
-            session.rollback()
-            return False, f"An error occurred while inserting data: {e}"
-        finally:
-            session.close()
+                return Result(success=True, message="Data inserted successfully")
+            except Exception as e:
+                session.rollback()
+                return Result(
+                    success=False,
+                    message=f"An error occurred while inserting data: {e}",
+                )

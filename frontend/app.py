@@ -2,7 +2,6 @@
 
 import os
 import sys
-import ast
 import streamlit as st
 import pandas as pd
 
@@ -47,7 +46,7 @@ if uploaded_files:
                     "file_size": len(file_content),
                     "file_config_id": file_handler.determine_file_config_id(
                         uploaded_file.name
-                    ),
+                    ).data,
                 }
 
                 progress_bar = st.progress(20)
@@ -57,7 +56,7 @@ if uploaded_files:
 
                 file_config = file_handler.get_file_config(
                     file_metadata["file_config_id"]
-                )
+                ).data
 
                 validators = [
                     ChecksumValidator(),
