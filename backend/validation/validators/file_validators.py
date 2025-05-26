@@ -36,7 +36,7 @@ class SchemaValidator(BaseValidator):
         self.encoding = file_config.encoding
         self.file_delimiter = file_config.delimiter
 
-    def validate(self, file_content: str, file_metadata: dict) -> Result:
+    def validate(self, file_content: bytes, file_metadata: dict) -> Result:
         try:
             decoded_content = file_content.decode(self.encoding)
         except UnicodeDecodeError:

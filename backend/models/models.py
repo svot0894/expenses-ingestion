@@ -103,7 +103,7 @@ class Files(Base, BaseModel):
     ingested_datetime = Column(DateTime, nullable=True)
 
     @staticmethod
-    def generate_checksum(content: str) -> str:
+    def generate_checksum(content: bytes) -> str:
         """Generate a checksum for the file content"""
         return hashlib.sha224(content).hexdigest()
 

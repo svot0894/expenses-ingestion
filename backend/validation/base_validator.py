@@ -7,10 +7,10 @@ class BaseValidator(ABC):
     """Base class for all validators."""
 
     @abstractmethod
-    def validate(self, file_content: str, file_metadata: dict) -> Result:
+    def validate(self, file_content: bytes, file_metadata: dict) -> Result:
         """
         Validate the file.
-        :param file_content: The content of the file to be validated as a string.
+        :param file_content: The content of the file to be validated.
         :param file_metadata: Metadata such as file name, size, etc.
         :return: A Result object containing success status and message.
         """

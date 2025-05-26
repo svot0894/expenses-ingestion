@@ -41,12 +41,16 @@ if uploaded_files:
             try:
                 st.write("🔄 **Step 1:** Creating file metadata...")
                 file_content = uploaded_file.getvalue()
+
+                determine_config_id_result = file_handler.determine_file_config_id(uploaded_file.name)
+
+                if not determine_config_id_result.success:
+                    raise RuntimeError(f"Failed to determine file config ID: {determine_config_id_result.message}")
+
                 file_metadata = {
                     "file_name": uploaded_file.name,
                     "file_size": len(file_content),
-                    "file_config_id": file_handler.determine_file_config_id(
-                        uploaded_file.name
-                    ).data,
+                    "file_config_id": determine_config_id_result.data
                 }
 
                 progress_bar = st.progress(20)
@@ -54,14 +58,17 @@ if uploaded_files:
                 # Step 2: Setting up validators
                 st.write("🔍 **Step 2:** Setting up file validators...")
 
-                file_config = file_handler.get_file_config(
+                get_config_result = file_handler.get_file_config(
                     file_metadata["file_config_id"]
-                ).data
+                )
+
+                if not get_config_result.success:
+                    raise RuntimeError(f"Failed to get file config: {get_config_result.message}")
 
                 validators = [
                     ChecksumValidator(),
                     SchemaValidator(
-                        file_config=file_config,
+                        file_config=get_config_result.data,
                     ),
                 ]
                 validation_pipeline = FileValidatorPipeline(validators)
@@ -71,25 +78,25 @@ if uploaded_files:
                 # Step 3: Running validators
                 st.write("🔍 **Step 3:** Running file validators...")
 
-                is_valid, message = validation_pipeline.run_validations(
+                validations_result = validation_pipeline.run_validations(
                     file_content, file_metadata
                 )
-                if not is_valid:
-                    raise RuntimeError(f"File didn't pass validations: {message}")
+                if not validations_result.success:
+                    raise RuntimeError(f"File didn't pass validations: {validations_result.message}")
 
                 progress_bar.progress(60)
 
                 # Step 4: Upload to Google Drive
                 st.write("☁️ **Step 4:** Uploading file to Google Drive...")
-                is_valid, file_id, message = drive_handler.upload_file(
+                file_upload_result = drive_handler.upload_file(
                     uploaded_file, folder_id=FOLDER_ID
                 )
 
-                if not is_valid:
-                    raise Exception(f"{message}")
+                if not file_upload_result.success:
+                    raise Exception(f"{file_upload_result.message}")
 
                 # Register rollback: if error occurs later, delete the uploaded file
-                rollback_actions.append(lambda: drive_handler.delete_file(file_id))
+                rollback_actions.append(lambda: drive_handler.delete_file(file_upload_result.data))
 
                 progress_bar.progress(80)
 
@@ -97,7 +104,7 @@ if uploaded_files:
                 st.write("🗄️ **Step 5:** Storing file metadata...")
 
                 expenses_file = Files(
-                    file_id=file_id,
+                    file_id=file_upload_result.data,
                     file_source=file_metadata["file_name"].split("_")[0],
                     file_name=file_metadata["file_name"],
                     file_size=file_metadata["file_size"],
@@ -107,10 +114,10 @@ if uploaded_files:
                     file_config_id=file_metadata["file_config_id"],
                 )
 
-                is_valid, message = file_handler.upload_file_metadata(expenses_file)
+                upload_metadata_result = file_handler.upload_file_metadata(expenses_file)
 
-                if not is_valid:
-                    raise Exception(f"{message}")
+                if not upload_metadata_result.success:
+                    raise Exception(f"{upload_metadata_result.message}")
 
                 progress_bar.progress(100)
 
@@ -141,12 +148,12 @@ if uploaded_files:
 st.subheader("📊 File Processing Status")
 st.caption("Select a file to start processing and track its status.")
 
-is_valid, file_list = file_handler.get_all_files()
+get_all_files_result = file_handler.get_all_files()
 
-if not is_valid:
-    st.error({file_list})
+if not get_all_files_result.success:
+    st.error({get_all_files_result.data})
 else:
-    data = [expense_instance.model_dump(mode="json") for expense_instance in file_list]
+    data = [expense_instance.model_dump(mode="json") for expense_instance in get_all_files_result.data]
     df = pd.DataFrame(data)
 
     selected_rows = st.dataframe(df, use_container_width=True, on_select="rerun")
@@ -155,15 +162,15 @@ else:
         selected_file = df.iloc[selected_rows.selection["rows"][0]]
 
         if selected_file.file_status_id != 3:
-            is_valid, message = load_data_to_silver(
+            load_silver_result = load_data_to_silver(
                 selected_file.file_id,
                 int(selected_file.file_config_id),
                 drive_handler,
                 file_handler,
             )
 
-            if not is_valid:
-                st.error(f"❌ {message}")
+            if not load_silver_result.success:
+                st.error(f"❌ {load_silver_result.message}")
             else:
                 st.success("✅ File processed successfully.")
         else:
