@@ -126,7 +126,11 @@ class FileHandler:
         with self.db_handler.get_db_session() as session:
             try:
                 response = session.query(Files).all()
-                return Result(success=True, data=response)
+                # serialize objects while the session is still open
+                serialized_files = [
+                    file_instance.model_dump(mode="json") for file_instance in response
+                ]
+                return Result(success=True, data=serialized_files)
             except Exception as e:
                 return Result(
                     success=False,

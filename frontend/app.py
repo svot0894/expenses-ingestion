@@ -42,15 +42,19 @@ if uploaded_files:
                 st.write("🔄 **Step 1:** Creating file metadata...")
                 file_content = uploaded_file.getvalue()
 
-                determine_config_id_result = file_handler.determine_file_config_id(uploaded_file.name)
+                determine_config_id_result = file_handler.determine_file_config_id(
+                    uploaded_file.name
+                )
 
                 if not determine_config_id_result.success:
-                    raise RuntimeError(f"Failed to determine file config ID: {determine_config_id_result.message}")
+                    raise RuntimeError(
+                        f"Failed to determine file config ID: {determine_config_id_result.message}"
+                    )
 
                 file_metadata = {
                     "file_name": uploaded_file.name,
                     "file_size": len(file_content),
-                    "file_config_id": determine_config_id_result.data
+                    "file_config_id": determine_config_id_result.data,
                 }
 
                 progress_bar = st.progress(20)
@@ -63,7 +67,9 @@ if uploaded_files:
                 )
 
                 if not get_config_result.success:
-                    raise RuntimeError(f"Failed to get file config: {get_config_result.message}")
+                    raise RuntimeError(
+                        f"Failed to get file config: {get_config_result.message}"
+                    )
 
                 validators = [
                     ChecksumValidator(),
@@ -82,7 +88,9 @@ if uploaded_files:
                     file_content, file_metadata
                 )
                 if not validations_result.success:
-                    raise RuntimeError(f"File didn't pass validations: {validations_result.message}")
+                    raise RuntimeError(
+                        f"File didn't pass validations: {validations_result.message}"
+                    )
 
                 progress_bar.progress(60)
 
@@ -96,7 +104,9 @@ if uploaded_files:
                     raise Exception(f"{file_upload_result.message}")
 
                 # Register rollback: if error occurs later, delete the uploaded file
-                rollback_actions.append(lambda: drive_handler.delete_file(file_upload_result.data))
+                rollback_actions.append(
+                    lambda: drive_handler.delete_file(file_upload_result.data)
+                )
 
                 progress_bar.progress(80)
 
@@ -114,7 +124,9 @@ if uploaded_files:
                     file_config_id=file_metadata["file_config_id"],
                 )
 
-                upload_metadata_result = file_handler.upload_file_metadata(expenses_file)
+                upload_metadata_result = file_handler.upload_file_metadata(
+                    expenses_file
+                )
 
                 if not upload_metadata_result.success:
                     raise Exception(f"{upload_metadata_result.message}")
@@ -151,10 +163,9 @@ st.caption("Select a file to start processing and track its status.")
 get_all_files_result = file_handler.get_all_files()
 
 if not get_all_files_result.success:
-    st.error({get_all_files_result.data})
+    st.error(f"Something went wrong: {get_all_files_result.message}")
 else:
-    data = [expense_instance.model_dump(mode="json") for expense_instance in get_all_files_result.data]
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(get_all_files_result.data)
 
     selected_rows = st.dataframe(df, use_container_width=True, on_select="rerun")
 
