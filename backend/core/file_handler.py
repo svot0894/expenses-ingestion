@@ -109,6 +109,7 @@ class FileHandler:
                     .first()
                 )
                 if response:
+                    session.expunge(response)
                     return Result(success=True, data=response)
                 else:
                     return Result(

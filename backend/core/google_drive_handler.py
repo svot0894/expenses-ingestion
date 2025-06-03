@@ -13,14 +13,12 @@ Usage example:
 """
 
 import io
-import os
+import json
 from typing import Optional
-import pickle
 from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from googleapiclient.errors import HttpError
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
+from google.oauth2.service_account import Credentials
 from backend.core.types import Result
 
 
@@ -32,27 +30,13 @@ class GoogleDriveHandler:
         self.service = self.authenticate()
 
     def authenticate(self) -> Resource:
-        """The file token.pickle stores the user's access and refresh tokens
-        Created automatically when the auth flow completes the 1st time."""
-        creds = None
-        token_path = "token.pickle"
+        """Authenticates using a service account."""
+        sa_info = dict(self.config.get("service_account"))
 
-        if os.path.exists(token_path):
-            with open(token_path, "rb") as token:
-                creds = pickle.load(token)
+        creds = Credentials.from_service_account_info(
+            sa_info, scopes=self.config.google_drive_api.scopes
+        )
 
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                client_config = {"web": self.config["web"]}
-                flow = InstalledAppFlow.from_client_config(
-                    client_config, self.config.google_drive_api.scopes
-                )
-                creds = flow.run_local_server(port=0)
-            # Save the credentials for the next run
-            with open(token_path, "wb") as token:
-                pickle.dump(creds, token)
         service = build("drive", "v3", credentials=creds)
         return service
 
