@@ -9,7 +9,7 @@ class BaseCleaner(ABC):
 
     @abstractmethod
     def clean(self, row: pd.Series) -> pd.Series:
-        pass
+        """Cleans a singles row and returns the cleaned row."""
 
 
 class CleaningPipeline:
@@ -21,6 +21,7 @@ class CleaningPipeline:
         self.cleaners = cleaners
 
     def run(self, row: pd.Series) -> pd.Series:
+        """Runner function."""
         for cleaner in self.cleaners:
             row = cleaner.clean(row)
         return row

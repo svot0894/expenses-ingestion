@@ -8,7 +8,7 @@ from backend.core.types import Result
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
 from backend.models.models import Expense, FailedExpense
-from backend.validation.base_validator import RowValidatorPipeline
+from backend.validation.base_validator import DataFrameValidatorPipeline
 from backend.validation.validators.expense_validators import (
     DuplicatesValidator,
     DateFormatValidator,
@@ -85,47 +85,60 @@ def load_data_to_silver(
             DateFormatValidator(file_config.date_format),
         ]
 
-        validator_pipeline = RowValidatorPipeline(validators)
+        validator_pipeline = DataFrameValidatorPipeline(validators)
+        validation_result = validator_pipeline.run_validations(df)
+
+        df = validation_result.data
+
+        valid_rows = df[df["is_valid"]].copy()
+        failed_rows = df[~df["is_valid"]].copy()
+
+        # STEP 5: Clean valid rows
+        cleaners = [
+            TrimColumnCleaner(),
+            FormatDateCleaner(file_config.date_format),
+            FormatAmountSignCleaner(file_config.amount_sign),
+        ]
+        cleaning_pipeline = CleaningPipeline(cleaners)
 
         valid_expenses = []
+
+        for _, row in valid_rows.iterrows():
+            cleaned_row = cleaning_pipeline.run(row)
+            try:
+                expense = Expense(
+                    file_id=file_id,
+                    transaction_date=cleaned_row.TRANSACTION_DATE,
+                    amount=cleaned_row.AMOUNT,
+                    description=cleaned_row.DESCRIPTION,
+                    category=cleaned_row.CATEGORY,
+                )
+                valid_expenses.append(expense)
+            except Exception as e:
+                # add to failed_rows as well
+                failed_rows = failed_rows.append(
+                    {
+                        **row.to_dict(),
+                        "error_message": row.get("error_message", "")
+                        + f"Cleaning error: {str(e)}",
+                    },
+                    ignore_index=True,
+                )
+
+        # STEP 7: Prepare FailedExpenses objects from failed_rows
         failed_expenses = []
+        for _, row in failed_rows.iterrows():
+            failed_expense = FailedExpense(
+                file_id=file_id,
+                transaction_date=str(row.TRANSACTION_DATE),
+                amount=str(row.AMOUNT),
+                description=str(row.DESCRIPTION),
+                category=str(row.CATEGORY),
+                error_message=str(row.error_message),
+            )
+            failed_expenses.append(failed_expense)
 
-        for _, row in df.iterrows():
-            result = validator_pipeline.run_validations(row)
-
-            if result.success:
-                # run cleaning steps
-                cleaners = [
-                    TrimColumnCleaner(),
-                    FormatDateCleaner(file_config.date_format),
-                    FormatAmountSignCleaner(file_config.amount_sign),
-                ]
-
-                cleaning_pipeline = CleaningPipeline(cleaners)
-                cleaned_rows = cleaning_pipeline.run(row)
-
-                try:
-                    expense = Expense(
-                        file_id=file_id,
-                        transaction_date=cleaned_rows.TRANSACTION_DATE,
-                        amount=cleaned_rows.AMOUNT,
-                        description=cleaned_rows.DESCRIPTION,
-                        category=cleaned_rows.CATEGORY,
-                    )
-                    valid_expenses.append(expense)
-                except Exception as e:
-                    # run error handling steps
-                    failed_expense = FailedExpense(
-                        file_id=file_id,
-                        transaction_date=str(row.TRANSACTION_DATE),
-                        amount=str(row.AMOUNT),
-                        description=str(row.DESCRIPTION),
-                        category=str(row.CATEGORY),
-                        error_message=str(e),
-                    )
-                    failed_expenses.append(failed_expense)
-
-        # Insert good data into s_t_expenses
+        # Step 8: Insert good data into s_t_expenses
         for expense in valid_expenses:
             result = file_handler.insert_expenses(expense, data_condition="good")
 
@@ -137,7 +150,7 @@ def load_data_to_silver(
                     Reason: {result.message}""",
                 )
 
-        # Insert bad data into s_t_expenses_error
+        # Step 9: Insert bad data into s_t_expenses_error
         for failed_expense in failed_expenses:
             result = file_handler.insert_expenses(
                 failed_expense, data_condition="error"
@@ -151,7 +164,7 @@ def load_data_to_silver(
                     Reason: {result.message}""",
                 )
 
-        # STEP 7: Update the status and ingested datetime of the file
+        # STEP 10: Update the status and ingested datetime of the file
         if not failed_expenses:
             file_status = 3  # Completed
         elif valid_expenses and failed_expenses:
@@ -170,7 +183,7 @@ def load_data_to_silver(
                 Reason: {str(e)}""",
             )
 
-        # STEP 8: Return the result of the task
+        # STEP 11: Return the result of the task
         return Result(success=True, message="Data loaded to the silver layer.")
     except Exception as e:
         return Result(success=False, message=str(e))

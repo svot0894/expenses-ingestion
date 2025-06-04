@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from backend.core.types import Result
+import pandas as pd
 
 
 # base validator for file validation
@@ -39,34 +40,45 @@ class FileValidatorPipeline:
         return Result(success=True, message="File is valid.")
 
 
-# base validator for individual row validation
-class BaseRowValidator(ABC):
-    """Base class for all row validators."""
+# base validator for entire DataFrames
+class BaseDataFrameValidator(ABC):
+    """Base class for all DataFrame-level validators."""
 
     @abstractmethod
-    def validate(self, row: dict) -> Result:
+    def validate(self, df: pd.DataFrame) -> Result:
         """
-        Validate a single row of data.
-        :param row: The row to be validated as a dictionary.
-        :return: A Result object containing success status and message.
+        Validates an entire DataFrame.
+        Returns: <Boolean>, True for valid rows, False for invalid.
         """
         pass
 
 
-class RowValidatorPipeline:
-    """Pipeline to validate a row using multiple validators."""
+class DataFrameValidatorPipeline:
+    """Pipeline to validate a DataFrame using multiple validators."""
 
-    def __init__(self, validators: list[BaseRowValidator]):
+    def __init__(self, validators: list[BaseDataFrameValidator]):
         self.validators = validators
 
-    def run_validations(self, row: dict) -> Result:
+    def run_validations(self, df: pd.DataFrame) -> Result:
         """
-        Run all validators and stop at the first failure.
-        :return: A Result object containing success status and message.
+        Run all validators and annotates the DataFrame with:
+        - is_valid: bool column for overall row validity
+        - error_message: concat string of all validation failures
         """
-        for validator in self.validators:
-            result = validator.validate(row)
-            if not result.success:
-                return Result(success=False, message=result.message)
+        df["is_valid"] = True
+        df["error_message"] = ""
 
-        return Result(success=True, message="Row is valid.")
+        for validator in self.validators:
+            result = validator.validate(df)
+            df["is_valid"] &= result.success
+            df.loc[not result.success, "error_message"] += result.message + " "
+
+        failed_rows = ~df["is_valid"].sum()
+
+        if failed_rows > 0:
+            return Result(
+                success=False,
+                message=f"{failed_rows} rows(s) failed validation.",
+                data=df,
+            )
+        return Result(success=True, message="All rows are valid.", data=df)

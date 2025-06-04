@@ -4,7 +4,8 @@ from backend.validation.cleaning.base_cleaner import BaseCleaner
 
 class TrimColumnCleaner(BaseCleaner):
     """
-    Cleans the column by trimming whitespace from the beginning and end of each string.
+    Cleans the column by trimming whitespace
+    from the beginning and end of each string.
     """
 
     def clean(self, row: pd.Series) -> pd.Series:
@@ -38,15 +39,6 @@ class FormatAmountSignCleaner(BaseCleaner):
     def clean(self, row: pd.Series) -> pd.Series:
         original_amount = str(row["AMOUNT"]).strip()
 
-        # Step 1: Remove thousands separator
-        # Convert to uniform format: remove thousands separator, use '.' as decimal
-        # Assume European format if both '.' and ',' are present
-        if "," in original_amount and "." in original_amount:
-            # Likely European: 1.234,56 -> 1234.56
-            cleaned = original_amount.replace(".", "").replace(",", ".")
-        else:
-            # US-style or simple number
-            cleaned = original_amount.replace(",", "")
-
-        row["AMOUNT"] = cleaned * self.amount_sign
+        original_amount_float = float(original_amount)
+        row["AMOUNT"] = original_amount_float * self.amount_sign
         return row

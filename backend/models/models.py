@@ -10,11 +10,12 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Date,
-    Float,
+    Numeric,
     ForeignKey,
     UniqueConstraint,
     func,
-    Enum
+    Enum,
+    text,
 )
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -41,6 +42,7 @@ class BaseModel:
             }
         return None
 
+
 # configuration schema models
 class FileConfiguration(Base, BaseModel):
     """Configuration for file processing in order to allow
@@ -50,7 +52,7 @@ class FileConfiguration(Base, BaseModel):
     __table_args__ = {"schema": "cfg_sch"}
 
     config_id = Column(Integer, primary_key=True, autoincrement=True)
-    file_pattern = Column(String, nullable=False)
+    file_pattern = Column(String, nullable=False, index=True)
     date_format = Column(String, server_default="%d.%m.%y", nullable=False)
     amount_sign = Column(Integer, server_default="1", nullable=False)
     delimiter = Column(String, server_default=",", nullable=False)
@@ -59,12 +61,14 @@ class FileConfiguration(Base, BaseModel):
     expected_schema = Column(String, nullable=True)
     description = Column(String, default="", nullable=True)
 
+
 class FileStatusEnum(enum.Enum):
     UPLOADED = 1
     IN_PROGRESS = 2
     PROCESSED = 3
     PARTIALLY_PROCESSED = 4
     FAILED = 9
+
 
 class FileStatus(Base, BaseModel):
     """Status of the file processing"""
@@ -74,6 +78,7 @@ class FileStatus(Base, BaseModel):
 
     file_status_id = Column(Integer, primary_key=True, autoincrement=True)
     file_status_name = Column(Enum(FileStatusEnum), nullable=False)
+
 
 class Files(Base, BaseModel):
     """Stores information about the uploaded files"""
@@ -93,11 +98,9 @@ class Files(Base, BaseModel):
         nullable=False,
     )
     file_config_id = Column(
-        Integer,
-        ForeignKey("cfg_sch.cfg_t_file_config.config_id"),
-        nullable=False
+        Integer, ForeignKey("cfg_sch.cfg_t_file_config.config_id"), nullable=False
     )
-    active = Column(Boolean, server_default="True", nullable=False)
+    active = Column(Boolean, server_default=text("true"), nullable=False)
     error_message = Column(String, nullable=True)
     inserted_datetime = Column(DateTime, server_default=func.now(), nullable=False)
     ingested_datetime = Column(DateTime, nullable=True)
@@ -107,6 +110,7 @@ class Files(Base, BaseModel):
         """Generate a checksum for the file content"""
         return hashlib.sha224(content).hexdigest()
 
+
 # silver schema models
 class Expense(Base, BaseModel):
     """Stores a single expense record"""
@@ -115,13 +119,13 @@ class Expense(Base, BaseModel):
     __table_args__ = {"schema": "s_sch"}
 
     expense_id = Column(Integer, primary_key=True, autoincrement=True)
-    file_id = Column(
-        String, ForeignKey("cfg_sch.cfg_t_files.file_id"), nullable=False
-    )
+    file_id = Column(String, ForeignKey("cfg_sch.cfg_t_files.file_id"), nullable=False)
     transaction_date = Column(Date, nullable=False)
     description = Column(String(255), nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
     category = Column(String, nullable=True)
+    account = Column(String, nullable=True)
+
 
 class FailedExpense(Base, BaseModel):
     """Stores a single failed expense record"""
@@ -130,15 +134,14 @@ class FailedExpense(Base, BaseModel):
     __table_args__ = {"schema": "s_sch"}
 
     failed_expense_id = Column(Integer, primary_key=True, autoincrement=True)
-    file_id = Column(
-        String, ForeignKey("cfg_sch.cfg_t_files.file_id"), nullable=False
-    )
+    file_id = Column(String, ForeignKey("cfg_sch.cfg_t_files.file_id"), nullable=False)
     transaction_date = Column(String, nullable=True)
     description = Column(String, nullable=True)
     amount = Column(String, nullable=True)
     category = Column(String, nullable=True)
     error_message = Column(String, nullable=True)
-    ready_for_reload = Column(Boolean, server_default="False", nullable=False)
+    ready_for_reload = Column(Boolean, server_default=text("false"), nullable=False)
+
 
 # gold schema models
 class MonthlyExpenses(Base, BaseModel):
@@ -147,10 +150,11 @@ class MonthlyExpenses(Base, BaseModel):
 
     monthly_expenses_id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_month = Column(Date, nullable=False, index=True, unique=True)
-    total_expenses = Column(Float(12, 2), nullable=False)
-    total_earnings = Column(Float(12, 2), nullable=False)
-    total_savings = Column(Float(12, 2), nullable=False)
+    total_expenses = Column(Numeric(12, 2), nullable=False)
+    total_earnings = Column(Numeric(12, 2), nullable=False)
+    total_savings = Column(Numeric(12, 2), nullable=False)
     inserted_datetime = Column(DateTime, server_default=func.now())
+
 
 class CategoryExpenses(Base, BaseModel):
     __tablename__ = "g_t_category_expenses"
@@ -162,8 +166,9 @@ class CategoryExpenses(Base, BaseModel):
     category_expenses_id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_month = Column(Date, nullable=False, index=True)
     category = Column(String, nullable=False, index=True)
-    total_expenses = Column(Float(12, 2), nullable=False)
+    total_expenses = Column(Numeric(12, 2), nullable=False)
     inserted_datetime = Column(DateTime, server_default=func.now(), nullable=False)
+
 
 class SavingsRate(Base, BaseModel):
     __tablename__ = "g_t_savings_rate"
@@ -171,11 +176,13 @@ class SavingsRate(Base, BaseModel):
 
     savings_rate_id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_month = Column(Date, nullable=False, index=True, unique=True)
-    savings_rate = Column(Float(5, 2), nullable=False)
+    savings_rate = Column(Numeric(12, 2), nullable=False)
     inserted_datetime = Column(DateTime, server_default=func.now(), nullable=False)
+
 
 class PipelineConfiguration(Base, BaseModel):
     """Configuration for the ingestion pipeline"""
+
     __tablename__ = "g_t_pipeline_config"
     __table_args__ = {"schema": "g_sch"}
 
@@ -183,7 +190,7 @@ class PipelineConfiguration(Base, BaseModel):
     target_table = Column(String, nullable=False, unique=True)
     module_path = Column(String, nullable=False)
     class_name = Column(String, nullable=False)
-    active = Column(Boolean, server_default="False")
+    active = Column(Boolean, server_default=text("false"))
     dependency = Column(Integer, nullable=True)
     last_run = Column(DateTime, nullable=True)
     inserted_datetime = Column(DateTime, server_default=func.now(), nullable=False)
