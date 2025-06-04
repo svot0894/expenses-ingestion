@@ -1,16 +1,12 @@
 # backend/core/database_handler.py
 
-import os
 from contextlib import contextmanager
 from typing import Generator
+import streamlit as st
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateSchema
-from dotenv import load_dotenv
-
-
-load_dotenv()
 
 
 class DatabaseHandler:
@@ -20,7 +16,7 @@ class DatabaseHandler:
     """
 
     def __init__(self) -> None:
-        self.database_url = os.getenv("DATABASE_URL")
+        self.database_url = st.secrets.database.database_url
 
         if not self.database_url:
             raise ValueError("DATABASE_URL not set in environment variables")

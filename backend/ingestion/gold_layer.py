@@ -1,10 +1,9 @@
 """Gold Layer Ingestion Script"""
+
 from gold.g_t_pipeline_config import GoldPipelineRunner
-from dotenv import load_dotenv
 from backend.core.types import Result
 from backend.core.database_handler import DatabaseHandler
 
-load_dotenv()
 
 def run_gold_pipeline() -> Result:
     db_handler = DatabaseHandler()
@@ -16,9 +15,9 @@ def run_gold_pipeline() -> Result:
             return result
         except Exception as e:
             return Result(
-                success=False,
-                message=f"Error found while running gold pipeline: {e}"
+                success=False, message=f"Error found while running gold pipeline: {e}"
             )
+
 
 if __name__ == "__main__":
     result = run_gold_pipeline()

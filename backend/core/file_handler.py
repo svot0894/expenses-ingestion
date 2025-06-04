@@ -1,5 +1,4 @@
 from typing import Any
-from dotenv import load_dotenv
 from backend.core.types import Result
 from sqlalchemy import update, text
 from backend.core.database_handler import DatabaseHandler
@@ -9,8 +8,6 @@ from backend.models.models import (
     Files,
     FileConfiguration,
 )
-
-load_dotenv()
 
 
 class FileHandler:
