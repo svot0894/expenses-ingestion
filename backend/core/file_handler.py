@@ -55,6 +55,24 @@ class FileHandler:
                     message=f"An error occurred while updating file attribute: {e}",
                 )
 
+    def delete_file_metadata(self, file_id: str) -> Result:
+        """Deletes file record from DB and cascades to other tables."""
+        with self.db_handler.get_db_session() as session:
+            try:
+                file_rec = session.query(Files).filter(Files.file_id == file_id).first()
+
+                if file_rec:
+                    session.delete(file_rec)
+                    return Result(
+                        success=True, message="File record deleted successfully."
+                    )
+                return Result(success=False, message="File record not found.")
+            except Exception as e:
+                return Result(
+                    success=False,
+                    message=f"Error while deleting the record from DB: {e}.",
+                )
+
     def get_file_by_checksum(self, checksum: str) -> Result:
         """Check if a file with the given checksum exists in the database"""
         with self.db_handler.get_db_session() as session:

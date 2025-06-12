@@ -172,11 +172,12 @@ else:
                             st.error(f"❌ {result.message}")
             with btn_cols[1]:
                 if st.button("❌", help="Delete", use_container_width=True):
-                    delete_drive = drive_handler.delete_file(row["file_id"])
+                    delete_drive = drive_handler.delete_file(row.file_id)
+                    delete_rec = file_handler.delete_file_metadata(row.file_id)
 
-                    if delete_drive.success:
+                    if delete_drive.success and delete_rec.success:
                         st.success("Deleted successfully.")
                     else:
                         st.error(
-                            f"Error deleting file: {delete_drive.message} / {delete_db.message}"
+                            f"Error deleting file: {delete_drive.message} / {delete_rec.message}"
                         )
