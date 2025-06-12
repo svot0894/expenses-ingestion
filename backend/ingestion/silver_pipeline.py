@@ -77,20 +77,6 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
                 message=f"Failed to read file content: {e}",
             )
 
-        # STEP 3.1: Handle internal transfers within the file
-        # If the file contains internal transfers, we need to remove the OUTGOING rows
-        merged = df.merge(
-            df,
-            on=["TRANSACTION_DATE", "DESCRIPTION", abs("AMOUNT")],
-            suffixes=("_left", "_right"),
-        )
-
-        outgoing_records = merged[merged["AMOUNT_left"] < 0]
-
-        if not outgoing_records.empty:
-            # Remove the outgoing records from the original DataFrame
-            df = df[~df.index.isin(outgoing_records.index)]
-
         # STEP 4: Run validators
         validators = [
             DuplicatesValidator(),
