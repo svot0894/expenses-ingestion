@@ -4,6 +4,7 @@ This module contains the task to load the files stored in Google Drive to the si
 
 from io import BytesIO
 import pandas as pd
+import streamlit as st
 from backend.core.types import Result
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
@@ -21,12 +22,7 @@ from backend.validation.cleaning.expense_cleaners import (
 from backend.validation.cleaning.base_cleaner import CleaningPipeline
 
 
-def load_data_to_silver(
-    file_id: str,
-    file_config_id: int,
-    drive_handler: GoogleDriveHandler,
-    file_handler: FileHandler,
-) -> Result:
+def silver_pipeline(file_id: str, file_config_id: int) -> Result:
     """
     Task to load the files stored in Google Drive to the silver layer.
     This task:
@@ -37,6 +33,8 @@ def load_data_to_silver(
     -   Bad data moves to s_t_expenses_error
     - Updates the status of the file in the database
     """
+    drive_handler = GoogleDriveHandler(st.secrets)
+    file_handler = FileHandler()
 
     try:
         # STEP 1: Download the file from Google Drive

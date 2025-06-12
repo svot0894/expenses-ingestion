@@ -13,7 +13,6 @@ Usage example:
 """
 
 import io
-import json
 from typing import Optional
 from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
@@ -62,7 +61,7 @@ class GoogleDriveHandler:
             uploaded_file = (
                 self.service.files()
                 .create(body=file_metadata, media_body=media, fields="id")
-                .execute()
+                .execute(num_retries=3)
             )
 
             return Result(
@@ -76,15 +75,10 @@ class GoogleDriveHandler:
                 success=False,
                 message=f"An error occurred while uploading the file: {error}",
             )
-        except FileNotFoundError:
-            return Result(
-                success=False,
-                message=f"File not found: {file_path}",
-            )
         except Exception as e:
             return Result(
                 success=False,
-                message=f"An unexpected error occurred: {e}",
+                message=f"An unexpected error during file upload: {e}",
             )
 
     def delete_file(self, file_id: str) -> Result:

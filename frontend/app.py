@@ -7,15 +7,17 @@ import pandas as pd
 
 sys.path.append(os.getcwd())
 
+from backend.ingestion.pipeline import pipeline
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
-from backend.models.models import Files
+from backend.models.models import Files, FileStatusEnum
 from backend.validation.base_validator import FileValidatorPipeline
 from backend.validation.validators.file_validators import (
     ChecksumValidator,
     SchemaValidator,
 )
-from backend.ingestion.silver_layer import load_data_to_silver
+
+st.set_page_config(page_title="APP", layout="wide")
 
 # Load credentials
 SCOPES = st.secrets.google_drive_api.scopes
@@ -34,12 +36,11 @@ uploaded_files = st.file_uploader(
 
 if uploaded_files:
     for uploaded_file in uploaded_files:
-        with st.status(f"Processing {uploaded_file.name}...", expanded=True) as status:
+        with st.spinner(f"Processing {uploaded_file.name}...", show_time=True):
 
             rollback_actions = []
 
             try:
-                st.write("🔄 **Step 1:** Creating file metadata...")
                 file_content = uploaded_file.getvalue()
 
                 determine_config_id_result = file_handler.determine_file_config_id(
@@ -57,11 +58,7 @@ if uploaded_files:
                     "file_config_id": determine_config_id_result.data,
                 }
 
-                progress_bar = st.progress(20)
-
                 # Step 2: Setting up validators
-                st.write("🔍 **Step 2:** Setting up file validators...")
-
                 get_config_result = file_handler.get_file_config(
                     file_metadata["file_config_id"]
                 )
@@ -79,11 +76,7 @@ if uploaded_files:
                 ]
                 validation_pipeline = FileValidatorPipeline(validators)
 
-                progress_bar.progress(40)
-
                 # Step 3: Running validators
-                st.write("🔍 **Step 3:** Running file validators...")
-
                 validations_result = validation_pipeline.run_validations(
                     file_content, file_metadata
                 )
@@ -92,35 +85,29 @@ if uploaded_files:
                         f"File didn't pass validations: {validations_result.message}"
                     )
 
-                progress_bar.progress(60)
-
                 # Step 4: Upload to Google Drive
-                st.write("☁️ **Step 4:** Uploading file to Google Drive...")
                 file_upload_result = drive_handler.upload_file(
                     uploaded_file, folder_id=FOLDER_ID
                 )
 
                 if not file_upload_result.success:
-                    raise Exception(f"{file_upload_result.message}")
+                    raise Exception(f"File uploaded file: {file_upload_result.message}")
 
-                # Register rollback: if error occurs later, delete the uploaded file
+                # Register rollback: if error occurs later
+                # Delete the uploaded file
                 rollback_actions.append(
                     lambda: drive_handler.delete_file(file_upload_result.data)
                 )
 
-                progress_bar.progress(80)
-
                 # Step 5: Store metadata in database
-                st.write("🗄️ **Step 5:** Storing file metadata...")
-
                 expenses_file = Files(
                     file_id=file_upload_result.data,
                     file_source=file_metadata["file_name"].split("_")[0],
                     file_name=file_metadata["file_name"],
                     file_size=file_metadata["file_size"],
-                    number_rows=file_content.count(b"\n") - 1,  # exclude header
+                    number_rows=file_content.count(b"\n") - 1,
                     checksum=file_metadata["checksum"],
-                    file_status_id=1,  # 1 = uploaded
+                    file_status_id=FileStatusEnum.UPLOADED.value,
                     file_config_id=file_metadata["file_config_id"],
                 )
 
@@ -131,13 +118,7 @@ if uploaded_files:
                 if not upload_metadata_result.success:
                     raise Exception(f"{upload_metadata_result.message}")
 
-                progress_bar.progress(100)
-
                 st.success(f"✅ File {uploaded_file.name} uploaded successfully.")
-                status.update(
-                    label=f"✅ File {uploaded_file.name} uploaded successfully.",
-                    state="complete",
-                )
 
             except Exception as e:
                 # trigger rollback actions
@@ -148,13 +129,6 @@ if uploaded_files:
                         st.error(f"⚠️ Rollback failed: {rollback_error}")
 
                 st.error(f"❌ {str(e)}")
-                status.update(
-                    label=f"🚨 Error: {uploaded_file.name} processing failed",
-                    state="error",
-                )
-
-            finally:
-                progress_bar.empty()
 
 # File Processing Status
 st.subheader("📊 File Processing Status")
@@ -167,22 +141,42 @@ if not get_all_files_result.success:
 else:
     df = pd.DataFrame(get_all_files_result.data)
 
-    selected_rows = st.dataframe(df, use_container_width=True, on_select="rerun")
+    header_cols = st.columns([4, 1, 1, 1, 2], vertical_alignment="center")
+    header_cols[0].markdown("**File Name**")
+    header_cols[1].markdown("**Bytes**")
+    header_cols[2].markdown("**Rows**")
+    header_cols[3].markdown("**Status**")
+    header_cols[4].markdown("**Actions**")
 
-    if selected_rows.selection["rows"]:
-        selected_file = df.iloc[selected_rows.selection["rows"][0]]
+    for i, row in df.iterrows():
+        cols = st.columns([4, 1, 1, 1, 2], vertical_alignment="center")
 
-        if selected_file.file_status_id != 3:
-            load_silver_result = load_data_to_silver(
-                selected_file.file_id,
-                int(selected_file.file_config_id),
-                drive_handler,
-                file_handler,
-            )
+        cols[0].write(row.file_name)
+        cols[1].write(row.file_size)
+        cols[2].write(row.number_rows)
+        cols[3].write(FileStatusEnum(row.file_status_id).name)
 
-            if not load_silver_result.success:
-                st.error(f"❌ {load_silver_result.message}")
-            else:
-                st.success("✅ File processed successfully.")
-        else:
-            st.warning("This file has already been processed.")
+        with cols[4]:
+            btn_cols = st.columns(2)
+            with btn_cols[0]:
+                if row["file_status_id"] != FileStatusEnum.PROCESSED.value:
+                    if st.button(
+                        "▶️",
+                        help="Process",
+                        use_container_width=True,
+                    ):
+                        result = pipeline(row["file_id"], int(row["file_config_id"]))
+                        if result.success:
+                            st.success("✅ Processing complete")
+                        else:
+                            st.error(f"❌ {result.message}")
+            with btn_cols[1]:
+                if st.button("❌", help="Delete", use_container_width=True):
+                    delete_drive = drive_handler.delete_file(row["file_id"])
+
+                    if delete_drive.success:
+                        st.success("Deleted successfully.")
+                    else:
+                        st.error(
+                            f"Error deleting file: {delete_drive.message} / {delete_db.message}"
+                        )

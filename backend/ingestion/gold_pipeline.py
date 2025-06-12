@@ -1,11 +1,12 @@
 """Gold Layer Ingestion Script"""
 
-from gold.g_t_pipeline_config import GoldPipelineRunner
+from backend.ingestion.gold.g_t_pipeline_config import GoldPipelineRunner
 from backend.core.types import Result
 from backend.core.database_handler import DatabaseHandler
 
 
-def run_gold_pipeline() -> Result:
+def gold_pipeline() -> Result:
+    """Run all active gold pipelines."""
     db_handler = DatabaseHandler()
 
     with db_handler.get_db_session() as db_session:
@@ -17,8 +18,3 @@ def run_gold_pipeline() -> Result:
             return Result(
                 success=False, message=f"Error found while running gold pipeline: {e}"
             )
-
-
-if __name__ == "__main__":
-    result = run_gold_pipeline()
-    print(f"Success: {result.success} | Message: {result.message}")
