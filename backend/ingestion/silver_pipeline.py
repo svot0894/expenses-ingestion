@@ -77,6 +77,20 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
                 message=f"Failed to read file content: {e}",
             )
 
+        # STEP 3.1: Handle internal transfers within the file
+        # If the file contains internal transfers, we need to remove the OUTGOING rows
+        merged = df.merge(
+            df,
+            on=["TRANSACTION_DATE", "DESCRIPTION", abs("AMOUNT")],
+            suffixes=("_left", "_right"),
+        )
+
+        outgoing_records = merged[merged["AMOUNT_left"] < 0]
+
+        if not outgoing_records.empty:
+            # Remove the outgoing records from the original DataFrame
+            df = df[~df.index.isin(outgoing_records.index)]
+
         # STEP 4: Run validators
         validators = [
             DuplicatesValidator(),
@@ -107,9 +121,10 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
                 expense = Expense(
                     file_id=file_id,
                     transaction_date=cleaned_row.TRANSACTION_DATE,
-                    amount=cleaned_row.AMOUNT,
                     description=cleaned_row.DESCRIPTION,
+                    amount=cleaned_row.AMOUNT,
                     category=cleaned_row.CATEGORY,
+                    account=cleaned_row.ACCOUNT,
                 )
                 valid_expenses.append(expense)
             except Exception as e:
@@ -129,9 +144,10 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
             failed_expense = FailedExpense(
                 file_id=file_id,
                 transaction_date=str(row.TRANSACTION_DATE),
-                amount=str(row.AMOUNT),
                 description=str(row.DESCRIPTION),
+                amount=str(row.AMOUNT),
                 category=str(row.CATEGORY),
+                account=str(row.ACCOUNT),
                 error_message=str(row.error_message),
             )
             failed_expenses.append(failed_expense)
