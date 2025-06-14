@@ -7,6 +7,7 @@ import pandas as pd
 
 sys.path.append(os.getcwd())
 
+from backend.core.types import Result
 from backend.ingestion.pipeline import pipeline
 from backend.core.google_drive_handler import GoogleDriveHandler
 from backend.core.file_handler import FileHandler
@@ -134,50 +135,72 @@ if uploaded_files:
 st.subheader("📊 File Processing Status")
 st.caption("Select a file to start processing and track its status.")
 
+#  Fetch all files from the database
 get_all_files_result = file_handler.get_all_files()
 
 if not get_all_files_result.success:
     st.error(f"Something went wrong: {get_all_files_result.message}")
-else:
-    df = pd.DataFrame(get_all_files_result.data)
 
-    header_cols = st.columns([4, 1, 1, 1, 2], vertical_alignment="center")
-    header_cols[0].markdown("**File Name**")
-    header_cols[1].markdown("**Bytes**")
-    header_cols[2].markdown("**Rows**")
-    header_cols[3].markdown("**Status**")
-    header_cols[4].markdown("**Actions**")
+# Display the files in a table format
+df = pd.DataFrame(get_all_files_result.data)
 
-    for i, row in df.iterrows():
-        cols = st.columns([4, 1, 1, 1, 2], vertical_alignment="center")
+#
+CLICKED_FILE_ID = None
+ACTION_RESULT = None
 
-        cols[0].write(row.file_name)
-        cols[1].write(row.file_size)
-        cols[2].write(row.number_rows)
-        cols[3].write(FileStatusEnum(row.file_status_id).name)
+# create a header for the table
+header_cols = st.columns([3, 1, 1, 2, 2], vertical_alignment="center")
+header_cols[0].markdown("**File Name**")
+header_cols[1].markdown("**Bytes**")
+header_cols[2].markdown("**Rows**")
+header_cols[3].markdown("**Status**")
+header_cols[4].markdown("**Actions**")
 
-        with cols[4]:
-            btn_cols = st.columns(2)
-            with btn_cols[0]:
-                if row["file_status_id"] != FileStatusEnum.PROCESSED.value:
-                    if st.button(
-                        "▶️",
-                        help="Process",
-                        use_container_width=True,
-                    ):
-                        result = pipeline(row["file_id"], int(row["file_config_id"]))
-                        if result.success:
-                            st.success("✅ Processing complete")
-                        else:
-                            st.error(f"❌ {result.message}")
-            with btn_cols[1]:
-                if st.button("❌", help="Delete", use_container_width=True):
-                    delete_drive = drive_handler.delete_file(row.file_id)
-                    delete_rec = file_handler.delete_file_metadata(row.file_id)
+# Display each file's information in a row
+for i, row in df.iterrows():
+    cols = st.columns([3, 1, 1, 2, 2], vertical_alignment="center")
 
-                    if delete_drive.success and delete_rec.success:
-                        st.success("Deleted successfully.")
-                    else:
-                        st.error(
-                            f"Error deleting file: {delete_drive.message} / {delete_rec.message}"
-                        )
+    cols[0].write(row.file_name)
+    cols[1].write(row.file_size)
+    cols[2].write(row.number_rows)
+    cols[3].write(FileStatusEnum(row.file_status_id).name)
+
+    # Action buttons for each file
+    with cols[4]:
+        btn_cols = st.columns(2)
+        # process button
+        with btn_cols[0]:
+            if row.file_status_id != FileStatusEnum.PROCESSED.value:
+                if st.button(
+                    "▶️",
+                    help="Process",
+                    use_container_width=True,
+                ):
+                    CLICKED_FILE_ID = row.file_id
+                    ACTION_RESULT = pipeline(row.file_id, int(row.file_config_id))
+
+        # delete button
+        with btn_cols[1]:
+            if st.button("❌", help="Delete", use_container_width=True):
+                delete_drive = drive_handler.delete_file(row.file_id)
+                delete_rec = file_handler.delete_file_metadata(row.file_id)
+                CLICKED_FILE_ID = row.file_id
+
+                if delete_drive.success and delete_rec.success:
+                    ACTION_RESULT = Result(
+                        success=True, message="Deleted successfully."
+                    )
+                else:
+                    ACTION_RESULT = Result(
+                        success=False,
+                        message=f"""
+                        Error deleting file:
+                        {delete_drive.message} / {delete_rec.message}
+                        """,
+                    )
+
+if ACTION_RESULT:
+    if ACTION_RESULT.success:
+        st.success(f"✅ {ACTION_RESULT.message}")
+    else:
+        st.error(f"❌ {ACTION_RESULT.message}")

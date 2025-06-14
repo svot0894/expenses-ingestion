@@ -119,7 +119,11 @@ class Expense(Base, BaseModel):
     __table_args__ = {"schema": "s_sch"}
 
     expense_id = Column(Integer, primary_key=True, autoincrement=True)
-    file_id = Column(String, ForeignKey("cfg_sch.cfg_t_files.file_id"), nullable=False)
+    file_id = Column(
+        String,
+        ForeignKey("cfg_sch.cfg_t_files.file_id", ondelete="CASCADE"),
+        nullable=False,
+    )
     transaction_date = Column(Date, nullable=False)
     description = Column(String(255), nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
@@ -134,11 +138,16 @@ class FailedExpense(Base, BaseModel):
     __table_args__ = {"schema": "s_sch"}
 
     failed_expense_id = Column(Integer, primary_key=True, autoincrement=True)
-    file_id = Column(String, ForeignKey("cfg_sch.cfg_t_files.file_id"), nullable=False)
+    file_id = Column(
+        String,
+        ForeignKey("cfg_sch.cfg_t_files.file_id", ondelete="CASCADE"),
+        nullable=False,
+    )
     transaction_date = Column(String, nullable=True)
     description = Column(String, nullable=True)
     amount = Column(String, nullable=True)
     category = Column(String, nullable=True)
+    account = Column(String, nullable=True)
     error_message = Column(String, nullable=True)
     ready_for_reload = Column(Boolean, server_default=text("false"), nullable=False)
 

@@ -50,7 +50,6 @@ class BaseDataFrameValidator(ABC):
         Validates an entire DataFrame.
         Returns: <Boolean>, True for valid rows, False for invalid.
         """
-        pass
 
 
 class DataFrameValidatorPipeline:
@@ -70,10 +69,11 @@ class DataFrameValidatorPipeline:
 
         for validator in self.validators:
             result = validator.validate(df)
-            df["is_valid"] &= result.success
-            df.loc[not result.success, "error_message"] += result.message + " "
 
-        failed_rows = ~df["is_valid"].sum()
+            df["is_valid"] &= result.data
+            df.loc[~result.data, "error_message"] += result.message + "; "
+
+        failed_rows = (~df["is_valid"]).sum()
 
         if failed_rows > 0:
             return Result(

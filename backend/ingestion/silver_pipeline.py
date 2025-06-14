@@ -13,6 +13,7 @@ from backend.validation.base_validator import DataFrameValidatorPipeline
 from backend.validation.validators.expense_validators import (
     DuplicatesValidator,
     DateFormatValidator,
+    InternalTransfersValidator,
 )
 from backend.validation.cleaning.expense_cleaners import (
     TrimColumnCleaner,
@@ -38,6 +39,7 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
 
     try:
         # STEP 1: Download the file from Google Drive
+        print(f"Downloading file with ID: {file_id} from Google Drive...")
         result = drive_handler.download_file(file_id)
 
         if not result.success:
@@ -51,6 +53,7 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
         file_content = result.data
 
         # STEP 2: Fetch file configuration from the database
+        print(f"Fetching file configuration with ID: {file_config_id}...")
         result = file_handler.get_file_config(file_config_id)
 
         if not result.success:
@@ -64,6 +67,7 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
         file_config = result.data
 
         # STEP 3: Read the file in CSV format
+        print(f"Reading file content for file ID: {file_id}...")
         try:
             df = pd.read_csv(
                 BytesIO(file_content),
@@ -78,9 +82,11 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
             )
 
         # STEP 4: Run validators
+        print(f"Running validations for file ID: {file_id}...")
         validators = [
             DuplicatesValidator(),
             DateFormatValidator(file_config.date_format),
+            InternalTransfersValidator()
         ]
 
         validator_pipeline = DataFrameValidatorPipeline(validators)
@@ -92,6 +98,7 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
         failed_rows = df[~df["is_valid"]].copy()
 
         # STEP 5: Clean valid rows
+        print(f"Cleaning valid rows for file ID: {file_id}...")
         cleaners = [
             TrimColumnCleaner(),
             FormatDateCleaner(file_config.date_format),
@@ -125,6 +132,7 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
                 )
 
         # STEP 7: Prepare FailedExpenses objects from failed_rows
+        print(f"Preparing failed expenses for file ID: {file_id}...")
         failed_expenses = []
         for _, row in failed_rows.iterrows():
             failed_expense = FailedExpense(
@@ -139,6 +147,7 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
             failed_expenses.append(failed_expense)
 
         # Step 8: Insert good data into s_t_expenses
+        print(f"Inserting valid expenses for file ID: {file_id}...")
         for expense in valid_expenses:
             result = file_handler.insert_expenses(expense, data_condition="good")
 
@@ -151,6 +160,7 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
                 )
 
         # Step 9: Insert bad data into s_t_expenses_error
+        print(f"Inserting failed expenses for file ID: {file_id}...")
         for failed_expense in failed_expenses:
             result = file_handler.insert_expenses(
                 failed_expense, data_condition="error"
@@ -165,6 +175,7 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
                 )
 
         # STEP 10: Update the status and ingested datetime of the file
+        print(f"Updating file metadata for file ID: {file_id}...")
         if not failed_expenses:
             file_status = 3  # Completed
         elif valid_expenses and failed_expenses:
@@ -182,8 +193,6 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
                 Failed to update file metadata in the database.
                 Reason: {str(e)}""",
             )
-
-        # STEP 11: Return the result of the task
         return Result(success=True, message="Data loaded to the silver layer.")
     except Exception as e:
         return Result(success=False, message=str(e))
