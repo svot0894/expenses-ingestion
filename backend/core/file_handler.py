@@ -154,27 +154,33 @@ class FileHandler:
                 )
 
     def insert_expenses(
-        self, expense: Expense | FailedExpense, data_condition: str
+        self, expenses: list[Expense | FailedExpense], data_condition: str
     ) -> Result:
         """
-        Load data to the respective table based on the data condition (good or error).
+        Bulk load data to the respective table based on the data condition (good or error).
 
         Parameters:
-        - expense: Expense object or dict containing the data to be inserted.
+        - expense: List of Expense or FailedExpense objects to be inserted.
         - data_condition: Condition to determine if the data is good or error.
         """
+        if not expenses:
+            return Result(
+                success=True,
+                message="No expenses to insert.",
+            )
+
         with self.db_handler.get_db_session() as session:
             try:
-                if data_condition == "good" and isinstance(expense, Expense):
-                    session.add(expense)
-                elif data_condition == "error" and isinstance(expense, FailedExpense):
-                    session.add(expense)
+                if data_condition == "good" and all(isinstance(e, Expense) for e in expenses):
+                    session.add_all(expenses)
+                elif data_condition == "error" and all(isinstance(e, FailedExpense) for e in expenses):
+                    session.add_all(expenses)
                 else:
                     return Result(
-                        success=False, message="Invalid data type or condition"
+                        success=False, message="Invalid data type or condition."
                     )
 
-                return Result(success=True, message="Data inserted successfully")
+                return Result(success=True, message="Data inserted successfully.")
             except Exception as e:
                 session.rollback()
                 return Result(

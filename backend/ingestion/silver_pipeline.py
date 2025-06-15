@@ -148,31 +148,27 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
 
         # Step 8: Insert good data into s_t_expenses
         print(f"Inserting valid expenses for file ID: {file_id}...")
-        for expense in valid_expenses:
-            result = file_handler.insert_expenses(expense, data_condition="good")
+        result = file_handler.insert_expenses(valid_expenses, data_condition="good")
 
-            if not result.success:
-                return Result(
-                    success=False,
-                    message=f"""
-                    Failed to insert data into the database.
-                    Reason: {result.message}""",
-                )
+        if not result.success:
+            return Result(
+                success=False,
+                message=f"""
+                Failed to insert data into the DB.
+                Reason: {result.message}""",
+            )
 
         # Step 9: Insert bad data into s_t_expenses_error
         print(f"Inserting failed expenses for file ID: {file_id}...")
-        for failed_expense in failed_expenses:
-            result = file_handler.insert_expenses(
-                failed_expense, data_condition="error"
-            )
+        result = file_handler.insert_expenses(failed_expenses, data_condition="error")
 
-            if not result.success:
-                return Result(
-                    success=False,
-                    message=f"""
-                    Failed to insert error data into the database.
-                    Reason: {result.message}""",
-                )
+        if not result.success:
+            return Result(
+                success=False,
+                message=f"""
+                Failed to insert error data into the DB.
+                Reason: {result.message}""",
+            )
 
         # STEP 10: Update the status and ingested datetime of the file
         print(f"Updating file metadata for file ID: {file_id}...")
