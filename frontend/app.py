@@ -9,7 +9,7 @@ sys.path.append(os.getcwd())
 
 from backend.core.types import Result
 from backend.ingestion.pipeline import pipeline
-from backend.core.google_drive_handler import GoogleDriveHandler
+from backend.core.kdrive_handler import KDriveHandler
 from backend.core.file_handler import FileHandler
 from backend.models.models import Files, FileStatusEnum
 from backend.validation.base_validator import FileValidatorPipeline
@@ -20,11 +20,7 @@ from backend.validation.validators.file_validators import (
 
 st.set_page_config(page_title="APP", layout="wide")
 
-# Load credentials
-SCOPES = st.secrets.google_drive_api.scopes
-FOLDER_ID = st.secrets.google_drive_api.folder_id
-
-drive_handler = GoogleDriveHandler(st.secrets)
+drive_handler = KDriveHandler(st.secrets)
 file_handler = FileHandler()
 
 st.title("Expenses Tracker")
@@ -88,7 +84,7 @@ if uploaded_files:
 
                 # Step 4: Upload to Google Drive
                 file_upload_result = drive_handler.upload_file(
-                    uploaded_file, folder_id=FOLDER_ID
+                    uploaded_file
                 )
 
                 if not file_upload_result.success:
@@ -129,7 +125,7 @@ if uploaded_files:
                     except Exception as rollback_error:
                         st.error(f"⚠️ Rollback failed: {rollback_error}")
 
-                st.error(f"❌ {str(e)}")
+                st.error(f"❌ Something went wrong: {str(e)}")
 
 # File Processing Status
 st.subheader("📊 File Processing Status")
@@ -173,6 +169,7 @@ for i, row in df.iterrows():
             if row.file_status_id != FileStatusEnum.PROCESSED.value:
                 if st.button(
                     "▶️",
+                    key=f"file_{row.file_id}",
                     help="Process",
                     use_container_width=True,
                 ):
@@ -181,7 +178,12 @@ for i, row in df.iterrows():
 
         # delete button
         with btn_cols[1]:
-            if st.button("❌", help="Delete", use_container_width=True):
+            if st.button(
+                "❌",
+                key=f"delete_{row.file_id}",
+                help="Delete",
+                use_container_width=True,
+            ):
                 delete_drive = drive_handler.delete_file(row.file_id)
                 delete_rec = file_handler.delete_file_metadata(row.file_id)
                 CLICKED_FILE_ID = row.file_id

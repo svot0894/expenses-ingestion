@@ -6,7 +6,7 @@ from io import BytesIO
 import pandas as pd
 import streamlit as st
 from backend.core.types import Result
-from backend.core.google_drive_handler import GoogleDriveHandler
+from backend.core.kdrive_handler import KDriveHandler
 from backend.core.file_handler import FileHandler
 from backend.models.models import Expense, FailedExpense
 from backend.validation.base_validator import DataFrameValidatorPipeline
@@ -34,7 +34,7 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
     -   Bad data moves to s_t_expenses_error
     - Updates the status of the file in the database
     """
-    drive_handler = GoogleDriveHandler(st.secrets)
+    drive_handler = KDriveHandler(st.secrets)
     file_handler = FileHandler()
 
     try:
