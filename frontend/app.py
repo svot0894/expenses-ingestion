@@ -82,13 +82,13 @@ if uploaded_files:
                         f"File didn't pass validations: {validations_result.message}"
                     )
 
-                # Step 4: Upload to Google Drive
+                # Step 4: Upload to kDrive
                 file_upload_result = drive_handler.upload_file(
-                    uploaded_file
+                    file_content, file_metadata
                 )
 
                 if not file_upload_result.success:
-                    raise Exception(f"File uploaded file: {file_upload_result.message}")
+                    raise Exception(f"Error while uploading file: {file_upload_result.message}")
 
                 # Register rollback: if error occurs later
                 # Delete the uploaded file

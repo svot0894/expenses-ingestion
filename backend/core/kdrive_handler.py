@@ -18,10 +18,11 @@ class KDriveHandler:
     def __init__(self, config: dict) -> None:
         self.config = config
         self.base_url = self.config.kdrive.get("base_url")
-        self.folder_id = self.config.kdrive.get("folder_id")
+        self.drive_id = self.config.kdrive.get("drive_id")
+        self.directory_id = self.config.kdrive.get("directory_id")
         self.token = self.config.kdrive.get("token")
 
-    def upload_file(self, uploaded_file) -> Result:
+    def upload_file(self, file_content, file_metadata) -> Result:
         """
         Uploads a file to Infomaniak KDrive.
 
@@ -34,22 +35,22 @@ class KDriveHandler:
 
         try:
             response = requests.post(
-                f"{self.base_url}/3/drive/{self.folder_id}/upload",
-                params={"total_size": uploaded_file.size},
+                f"{self.base_url}/3/drive/{self.drive_id}/upload",
+                params={
+                    "total_size": file_metadata["file_size"],
+                    "directory_id": self.directory_id,
+                    "file_name": file_metadata["file_name"],
+                    "conflict": "version"
+                },
                 headers={
                     "Authorization": f"Bearer {self.token}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "file_id": 1,
-                    "file_name": uploaded_file.name,
-                    "directory_id": "1452781",
-                    "conflict": "version"
-                }
+                data=file_content
             )
-            print(response.text)
+
             response.raise_for_status()
-            file_id = response.json().get("id")
+            file_id = response.json().get("data").get("id")
             return Result(
                 success=True,
                 message="File uploaded successfully.",
@@ -72,7 +73,7 @@ class KDriveHandler:
         """
         try:
             response = requests.delete(
-                f"{self.base_url}/2/drive/{self.folder_id}/files/{file_id}",
+                f"{self.base_url}/2/drive/{self.drive_id}/files/{file_id}",
                 headers={
                     "Authorization": f"Bearer {self.token}",
                     "Content-Type": "application/json",
@@ -100,7 +101,7 @@ class KDriveHandler:
         """
         try:
             response = requests.get(
-                f"{self.base_url}/2/drive/{self.folder_id}/files/{file_id}/download",
+                f"{self.base_url}/2/drive/{self.drive_id}/files/{file_id}/download",
                 headers={
                     "Authorization": f"Bearer {self.token}",
                     "Content-Type": "application/json",

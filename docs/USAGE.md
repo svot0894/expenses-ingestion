@@ -3,6 +3,7 @@ Usage:
 - Activate python environment:
 
 On Windows:
+venv\Scripts\activate
 
 On Mac:
 source venv/bin/activate
@@ -19,13 +20,9 @@ source venv/bin/activate
 - Install dependencies from pyproject.toml file
     uv pip install -r pyproject.toml --group dev
 
-- Setup .env file
-    This contains the DATABASE_URL key.
-    It should look something like: "postgres://user:secret@localhost:5432/mydatabase"
-
 - Set up .streamlit/secrets.toml file.
-    This contains the Google Drive API variables.
-    You need to set up access to Google Drive API.
+    This contains the Infomaniak kDrive and DATABASE_URL variables.
+    You need to create an access token to kDrive.
 
 - You can run the frontend app!
     streamlit run ./frontend/app.py

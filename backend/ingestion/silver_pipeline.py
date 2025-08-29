@@ -1,5 +1,5 @@
 """
-This module contains the task to load the files stored in Google Drive to the silver layer.
+This module contains the task to load the files stored in kDrive to the silver layer.
 """
 
 from io import BytesIO
@@ -25,9 +25,9 @@ from backend.validation.cleaning.base_cleaner import CleaningPipeline
 
 def silver_pipeline(file_id: str, file_config_id: int) -> Result:
     """
-    Task to load the files stored in Google Drive to the silver layer.
+    Task to load the files stored in kDrive to the silver layer.
     This task:
-    - Downloads the file from Google Drive
+    - Downloads the file from kDrive
     - Reads the file in CSV format
     - Validates: no duplicates, data types, date format, etc.
     -   Good data moves to s_t_expenses
@@ -38,8 +38,8 @@ def silver_pipeline(file_id: str, file_config_id: int) -> Result:
     file_handler = FileHandler()
 
     try:
-        # STEP 1: Download the file from Google Drive
-        print(f"Downloading file with ID: {file_id} from Google Drive...")
+        # STEP 1: Download the file from kDrive
+        print(f"Downloading file with ID: {file_id} from kDrive...")
         result = drive_handler.download_file(file_id)
 
         if not result.success:
