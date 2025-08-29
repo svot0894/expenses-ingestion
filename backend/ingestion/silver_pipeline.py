@@ -1,12 +1,12 @@
 """
-This module contains the task to load the files stored in Google Drive to the silver layer.
+This module contains the task to load the files stored in kDrive to the silver layer.
 """
 
 from io import BytesIO
 import pandas as pd
 import streamlit as st
 from backend.core.types import Result
-from backend.core.google_drive_handler import GoogleDriveHandler
+from backend.core.kdrive_handler import KDriveHandler
 from backend.core.file_handler import FileHandler
 from backend.models.models import Expense, FailedExpense
 from backend.validation.base_validator import DataFrameValidatorPipeline
@@ -25,21 +25,21 @@ from backend.validation.cleaning.base_cleaner import CleaningPipeline
 
 def silver_pipeline(file_id: str, file_config_id: int) -> Result:
     """
-    Task to load the files stored in Google Drive to the silver layer.
+    Task to load the files stored in kDrive to the silver layer.
     This task:
-    - Downloads the file from Google Drive
+    - Downloads the file from kDrive
     - Reads the file in CSV format
     - Validates: no duplicates, data types, date format, etc.
     -   Good data moves to s_t_expenses
     -   Bad data moves to s_t_expenses_error
     - Updates the status of the file in the database
     """
-    drive_handler = GoogleDriveHandler(st.secrets)
+    drive_handler = KDriveHandler(st.secrets)
     file_handler = FileHandler()
 
     try:
-        # STEP 1: Download the file from Google Drive
-        print(f"Downloading file with ID: {file_id} from Google Drive...")
+        # STEP 1: Download the file from kDrive
+        print(f"Downloading file with ID: {file_id} from kDrive...")
         result = drive_handler.download_file(file_id)
 
         if not result.success:

@@ -40,6 +40,9 @@ class InternalTransfersValidator(BaseDataFrameValidator):
     """
 
     def validate(self, df: pd.DataFrame) -> Result:
+        # convert AMOUNT column to a float
+        df["AMOUNT"] = pd.to_numeric(df["AMOUNT"], errors='coerce')
+
         df["abs_AMOUNT"] = df["AMOUNT"].abs()
         grouped = df.groupby(["TRANSACTION_DATE", "abs_AMOUNT"])
 
