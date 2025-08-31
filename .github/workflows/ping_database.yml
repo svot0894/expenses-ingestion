@@ -4,6 +4,7 @@ description: A GitHub Action to ping a Supabase database to keep it active.
 on:
   schedule:
     - cron: "0 9 * * 0"  # Runs at 9:00 AM UTC every Sunday
+  workflow_dispatch:
 
 jobs:
   ping:
