@@ -8,6 +8,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateSchema
 
+from backend.models.models import Categories
+
 
 class DatabaseHandler:
     """
@@ -49,3 +51,11 @@ class DatabaseHandler:
         with self.engine.connect() as connection:
             connection.execute(CreateSchema(schema_name, if_not_exists=True))
             connection.commit()
+
+    def fetch_categories(self):
+        """
+        Fetches all categories (names) from the cfg_t_categories table.
+        """
+        with self.get_db_session() as session:
+            categories = session.query(Categories).all()
+            return [category.category_name for category in categories]

@@ -111,6 +111,17 @@ class Files(Base, BaseModel):
         return hashlib.sha224(content).hexdigest()
 
 
+class Categories(Base, BaseModel):
+    """Stores information about expense categories."""
+
+    __tablename__ = "cfg_t_categories"
+    __table_args__ = {"schema": "cfg_sch"}
+
+    category_id = Column(Integer, primary_key=True, autoincrement=True)
+    category_name = Column(String(255), nullable=False)
+    description = Column(String(255), nullable=True)
+
+
 # silver schema models
 class Expense(Base, BaseModel):
     """Stores a single expense record"""
@@ -127,7 +138,7 @@ class Expense(Base, BaseModel):
     transaction_date = Column(Date, nullable=False)
     description = Column(String(255), nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
-    category = Column(String, nullable=True)
+    category = Column(Integer, ForeignKey("cfg_sch.cfg_t_categories.category_id"), nullable=False)
     account = Column(String, nullable=True)
 
 
@@ -174,7 +185,7 @@ class CategoryExpenses(Base, BaseModel):
 
     category_expenses_id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_month = Column(Date, nullable=False, index=True)
-    category = Column(String, nullable=False, index=True)
+    category = Column(Integer, ForeignKey("cfg_sch.cfg_t_categories.category_id"), nullable=False)
     total_expenses = Column(Numeric(12, 2), nullable=False)
     inserted_datetime = Column(DateTime, server_default=func.now(), nullable=False)
 
