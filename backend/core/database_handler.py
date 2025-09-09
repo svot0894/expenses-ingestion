@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 from typing import Generator
 import streamlit as st
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateSchema
@@ -48,4 +48,15 @@ class DatabaseHandler:
         """
         with self.engine.connect() as connection:
             connection.execute(CreateSchema(schema_name, if_not_exists=True))
+            connection.commit()
+
+    def add_column(self, fq_table: str, col: str, col_type: str, nullable: bool) -> None:
+        """
+        Adds a new column to an existing table.
+        """
+        null_str = "NULL" if nullable else "NOT NULL"
+
+        with self.engine.connect() as connection:
+            stmt = text(f'ALTER TABLE {fq_table} ADD COLUMN IF NOT EXISTS "{col}" {col_type} {null_str}')
+            connection.execute(stmt)
             connection.commit()

@@ -129,6 +129,8 @@ class Expense(Base, BaseModel):
     amount = Column(Numeric(12, 2), nullable=False)
     category = Column(String, nullable=True)
     account = Column(String, nullable=True)
+    # generated column: expenses, earnings, savings
+    expense_type = Column(String(10), nullable=True)
 
 
 class FailedExpense(Base, BaseModel):
