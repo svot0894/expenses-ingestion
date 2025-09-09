@@ -202,6 +202,20 @@ class SavingsRate(Base, BaseModel):
     inserted_datetime = Column(DateTime, server_default=func.now(), nullable=False)
 
 
+class MonthlyBudget(Base, BaseModel):
+    __tablename__ = "g_t_monthly_budget"
+    __table_args__ = (
+        UniqueConstraint("transaction_month", "category_id"),
+        {"schema": "g_sch"}
+    )
+
+    monthly_budget_id = Column(Integer, primary_key=True, autoincrement=True)
+    transaction_month = Column(Date, nullable=False, index=True)
+    category_id = Column(Integer, ForeignKey("cfg_sch.cfg_t_categories.category_id"), nullable=False)
+    total_budget = Column(Numeric(12, 2), nullable=False)
+    inserted_datetime = Column(DateTime, server_default=func.now(), nullable=False)
+
+
 class PipelineConfiguration(Base, BaseModel):
     """Configuration for the ingestion pipeline"""
 

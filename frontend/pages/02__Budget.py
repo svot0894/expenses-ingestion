@@ -1,6 +1,11 @@
+import os
+import sys
 import streamlit as st
 from datetime import datetime
 from calendar import month_abbr as call_month_abbr
+
+sys.path.append(os.getcwd())
+
 from backend.core.database_handler import DatabaseHandler
 
 st.set_page_config(page_title="Monthly Budget", page_icon="💰", layout="wide")
@@ -40,9 +45,7 @@ with st.form("budget_form"):
     submitted = st.form_submit_button("Save Budget")
 
 if submitted:
-    # TODO: save budget to database
-    # TBD
-
+    db_handler.save_monthly_budget(report_month_date, budget)
     st.success("Budget saved!")
 
 

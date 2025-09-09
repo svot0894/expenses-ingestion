@@ -1,5 +1,7 @@
 # backend/core/database_handler.py
 
+import os
+import sys
 from contextlib import contextmanager
 from typing import Generator
 import streamlit as st
@@ -7,8 +9,11 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateSchema
+import datetime
 
-from backend.models.models import Categories
+sys.path.append(os.getcwd())
+
+from backend.models.models import Categories, MonthlyBudget
 
 
 class DatabaseHandler:
@@ -70,3 +75,20 @@ class DatabaseHandler:
         with self.get_db_session() as session:
             categories = session.query(Categories).all()
             return [category.category_name for category in categories]
+
+    def save_monthly_budget(self, transaction_month: datetime, budget: dict) -> None:
+        """
+        Saves the monthly budget to the database.
+        """
+        with self.get_db_session() as session:
+            for category_name, amount in budget.items():
+                with session.no_autoflush:
+                    category = session.query(Categories).filter_by(category_name=category_name).first()
+                if category:
+                    monthly_budget = MonthlyBudget(
+                        transaction_month=transaction_month,
+                        category_id=category.category_id,
+                        total_budget=amount
+                    )
+                    session.add(monthly_budget)
+            session.commit()
