@@ -140,6 +140,8 @@ class Expense(Base, BaseModel):
     amount = Column(Numeric(12, 2), nullable=False)
     category = Column(Integer, ForeignKey("cfg_sch.cfg_t_categories.category_id"), nullable=False)
     account = Column(String, nullable=True)
+    # generated column: expenses, earnings, savings
+    expense_type = Column(String(10), nullable=True)
 
 
 class FailedExpense(Base, BaseModel):
